@@ -1,5 +1,4 @@
 # language: es
-@pendiente
 Característica: US15 Registro de almacén o centro de acopio
   Como administrador de la organización
   quiero registrar almacenes y centros de acopio, y desactivarlos cuando dejen de operar

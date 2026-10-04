@@ -22,9 +22,11 @@ import pe.buildshield.core.iam.application.PasswordResetService;
 import pe.buildshield.core.iam.application.SignUpService;
 import pe.buildshield.core.iam.application.UserManagementService;
 import pe.buildshield.core.iam.domain.model.Role;
+import pe.buildshield.core.organization.application.AssignmentService;
 import pe.buildshield.core.organization.application.MaterialService;
 import pe.buildshield.core.organization.application.WarehouseService;
 import pe.buildshield.core.organization.application.WorksiteService;
+import pe.buildshield.core.organization.domain.model.SiteType;
 import pe.buildshield.core.organization.domain.model.UnitOfMeasure;
 import pe.buildshield.core.organization.domain.model.WarehouseType;
 import pe.buildshield.core.organization.domain.model.Location;
@@ -70,6 +72,8 @@ class RoleAuthorizationTest {
             Map.entry("deactivate", "{\"active\":false}"),
             Map.entry("material", "{\"sku\":\"CEM-001\",\"name\":\"Cemento\",\"unit\":\"BAG\",\"wasteTolerancePercent\":2.5}"),
             Map.entry("patch-material", "{\"wasteTolerancePercent\":1.5}"),
+            Map.entry("assignment", "{\"userId\":\"00000000-0000-0000-0000-0000000000bb\",\"siteType\":\"WORKSITE\",\"siteId\":\"00000000-0000-0000-0000-0000000000aa\"}"),
+            Map.entry("end-assignment", "{\"active\":false}"),
             Map.entry("create-user", "{\"fullName\":\"Rosa\",\"email\":\"rosa@andina.pe\",\"role\":\"WAREHOUSE_MANAGER\",\"password\":\"Almacen123\"}"));
 
     @Autowired
@@ -106,6 +110,9 @@ class RoleAuthorizationTest {
     @MockitoBean
     MaterialService materialService;
 
+    @MockitoBean
+    AssignmentService assignmentService;
+
     @BeforeEach
     void stubServices() {
         when(signUpService.signUp(any())).thenReturn(new SignUpService.SignUpResult(UUID.randomUUID(), UUID.randomUUID()));
@@ -133,6 +140,12 @@ class RoleAuthorizationTest {
         when(materialService.update(any(), any())).thenReturn(material);
         when(materialService.get(any())).thenReturn(material);
         when(materialService.list()).thenReturn(List.of(material));
+        AssignmentService.AssignmentView assignment = new AssignmentService.AssignmentView(ANY_ID, ANY_ID,
+                SiteType.WORKSITE, ANY_ID, Instant.now(), null, true);
+        when(assignmentService.assign(any())).thenReturn(assignment);
+        when(assignmentService.update(any(), any())).thenReturn(assignment);
+        when(assignmentService.get(any())).thenReturn(assignment);
+        when(assignmentService.list()).thenReturn(List.of(assignment));
     }
 
     @ParameterizedTest(name = "{0} {1} como {2} -> {3}")
@@ -197,6 +210,22 @@ class RoleAuthorizationTest {
             "GET  , /api/v1/materials, , SITE_MANAGER, 200",
             "GET  , /api/v1/materials/00000000-0000-0000-0000-0000000000aa, , SITE_MANAGER, 200",
             "PATCH, /api/v1/materials/00000000-0000-0000-0000-0000000000aa, patch-material, SITE_MANAGER, 403",
+            "POST , /api/v1/assignments, assignment, ANONYMOUS, 401",
+            "GET  , /api/v1/assignments, , ANONYMOUS, 401",
+            "GET  , /api/v1/assignments/00000000-0000-0000-0000-0000000000aa, , ANONYMOUS, 401",
+            "PATCH, /api/v1/assignments/00000000-0000-0000-0000-0000000000aa, end-assignment, ANONYMOUS, 401",
+            "POST , /api/v1/assignments, assignment, ADMINISTRATOR, 201",
+            "GET  , /api/v1/assignments, , ADMINISTRATOR, 200",
+            "GET  , /api/v1/assignments/00000000-0000-0000-0000-0000000000aa, , ADMINISTRATOR, 200",
+            "PATCH, /api/v1/assignments/00000000-0000-0000-0000-0000000000aa, end-assignment, ADMINISTRATOR, 200",
+            "POST , /api/v1/assignments, assignment, WAREHOUSE_MANAGER, 403",
+            "GET  , /api/v1/assignments, , WAREHOUSE_MANAGER, 200",
+            "GET  , /api/v1/assignments/00000000-0000-0000-0000-0000000000aa, , WAREHOUSE_MANAGER, 200",
+            "PATCH, /api/v1/assignments/00000000-0000-0000-0000-0000000000aa, end-assignment, WAREHOUSE_MANAGER, 403",
+            "POST , /api/v1/assignments, assignment, SITE_MANAGER, 403",
+            "GET  , /api/v1/assignments, , SITE_MANAGER, 200",
+            "GET  , /api/v1/assignments/00000000-0000-0000-0000-0000000000aa, , SITE_MANAGER, 200",
+            "PATCH, /api/v1/assignments/00000000-0000-0000-0000-0000000000aa, end-assignment, SITE_MANAGER, 403",
     })
     void endpoint_is_allowed_only_for_its_roles(String method, String path, String body, String who, int expectedStatus)
             throws Exception {

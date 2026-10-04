@@ -6,11 +6,15 @@ import io.cucumber.java.es.Dado;
 import io.cucumber.java.es.Entonces;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import org.springframework.test.web.servlet.MvcResult;
 import pe.buildshield.core.organization.domain.model.UnitOfMeasure;
+import pe.buildshield.core.organization.domain.model.WarehouseType;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -119,6 +123,153 @@ public class OrganizationSteps {
         }
         assertThat(found).as("material %s en el catálogo", sku).isNotNull();
         assertThat(found.path("wasteTolerancePercent").decimalValue()).isEqualByComparingTo(tolerance);
+    }
+
+    // ---------- US15 Almacenes ----------
+
+    @Cuando("registro el almacén {string} de tipo {string} en {string}")
+    public void registerWarehouse(String name, String type, String address) throws Exception {
+        session.send(post("/api/v1/warehouses"), Map.of("name", name, "type", warehouseType(type), "address", address));
+        if (session.status() == 201) {
+            session.remember(name);
+        }
+    }
+
+    @Dado("que registré el almacén {string}")
+    public void warehouseRegistered(String name) throws Exception {
+        registerWarehouse(name, "almacén", "Av. Argentina 2500, Callao");
+        session.expectStatus(201);
+    }
+
+    @Cuando("desactivo el almacén {string}")
+    public void deactivateWarehouse(String name) throws Exception {
+        session.send(patch("/api/v1/warehouses/" + session.id(name)), Map.of("active", false));
+    }
+
+    @Dado("que desactivé el almacén {string}")
+    public void warehouseDeactivated(String name) throws Exception {
+        deactivateWarehouse(name);
+        session.expectStatus(200);
+    }
+
+    @Cuando("reactivo el almacén {string}")
+    public void reactivateWarehouse(String name) throws Exception {
+        session.send(patch("/api/v1/warehouses/" + session.id(name)), Map.of("active", true));
+    }
+
+    @Entonces("el almacén {string} está activo")
+    public void warehouseIsActive(String name) throws Exception {
+        assertThat(warehouse(name).path("active").asBoolean()).isTrue();
+    }
+
+    @Entonces("el almacén {string} está inactivo")
+    public void warehouseIsInactive(String name) throws Exception {
+        assertThat(warehouse(name).path("active").asBoolean()).isFalse();
+    }
+
+    @Cuando("consulto el almacén {string}")
+    public void consultWarehouse(String name) throws Exception {
+        session.send(get("/api/v1/warehouses/" + session.id(name)), null);
+    }
+
+    // ---------- US17 Asignaciones y visibilidad ----------
+
+    @Cuando("asigno a {string} a la obra {string}")
+    public void assignToWorksite(String email, String worksite) throws Exception {
+        assign(email, "WORKSITE", worksite);
+    }
+
+    @Cuando("asigno a {string} al almacén {string}")
+    public void assignToWarehouse(String email, String warehouse) throws Exception {
+        assign(email, "WAREHOUSE", warehouse);
+    }
+
+    @Dado("que asigné a {string} a la obra {string}")
+    public void assignedToWorksite(String email, String worksite) throws Exception {
+        assignToWorksite(email, worksite);
+        session.expectStatus(201);
+    }
+
+    @Dado("que asigné a {string} al almacén {string}")
+    public void assignedToWarehouse(String email, String warehouse) throws Exception {
+        assignToWarehouse(email, warehouse);
+        session.expectStatus(201);
+    }
+
+    @Cuando("termino la asignación de {string} a la obra {string}")
+    public void endAssignment(String email, String worksite) throws Exception {
+        JsonNode assignment = findAssignment(email, worksite);
+        assertThat(assignment).as("asignación de %s a %s", email, worksite).isNotNull();
+        session.send(patch("/api/v1/assignments/" + assignment.path("id").asText()), Map.of("active", false));
+    }
+
+    @Entonces("las asignaciones incluyen la de {string} al almacén {string}")
+    public void assignmentsIncludeWarehouse(String email, String warehouse) throws Exception {
+        assertThat(findAssignment(email, warehouse)).as("asignación de %s a %s", email, warehouse).isNotNull();
+    }
+
+    @Entonces("las asignaciones incluyen la de {string} a la obra {string} ya terminada")
+    public void assignmentsIncludeEnded(String email, String worksite) throws Exception {
+        JsonNode assignment = findAssignment(email, worksite);
+        assertThat(assignment).as("asignación de %s a %s", email, worksite).isNotNull();
+        assertThat(assignment.path("active").asBoolean()).isFalse();
+        assertThat(assignment.path("endedAt").isNull()).isFalse();
+    }
+
+    @Cuando("consulto las obras")
+    public void listWorksites() throws Exception {
+        session.send(get("/api/v1/worksites"), null);
+    }
+
+    @Cuando("consulto los almacenes")
+    public void listWarehouses() throws Exception {
+        session.send(get("/api/v1/warehouses"), null);
+    }
+
+    @Entonces("la lista contiene exactamente:")
+    public void listContainsExactly(List<String> names) throws Exception {
+        session.expectStatus(200);
+        List<String> inList = new ArrayList<>();
+        session.body().forEach(item -> inList.add(item.path("name").asText()));
+        assertThat(inList).containsExactlyInAnyOrderElementsOf(names);
+    }
+
+    @Entonces("la lista está vacía")
+    public void listIsEmpty() throws Exception {
+        session.expectStatus(200);
+        assertThat(session.body().size()).isZero();
+    }
+
+    private void assign(String email, String siteType, String site) throws Exception {
+        session.send(post("/api/v1/assignments"), Map.of("userId", session.id(email).toString(), "siteType", siteType,
+                "siteId", session.id(site).toString()));
+    }
+
+    /** Busca con la sesión actual, sin cambiar la última respuesta. */
+    private JsonNode findAssignment(String email, String site) throws Exception {
+        MvcResult response = session.perform(get("/api/v1/assignments"), null, session.accessToken());
+        for (JsonNode assignment : session.read(response)) {
+            if (assignment.path("userId").asText().equals(session.id(email).toString())
+                    && assignment.path("siteId").asText().equals(session.id(site).toString())) {
+                return assignment;
+            }
+        }
+        return null;
+    }
+
+    private JsonNode warehouse(String name) throws Exception {
+        MvcResult response = session.perform(get("/api/v1/warehouses/" + session.id(name)), null, session.accessToken());
+        assertThat(response.getResponse().getStatus()).isEqualTo(200);
+        return session.read(response);
+    }
+
+    /** "almacén" → WAREHOUSE; "centro de acopio" → COLLECTION_CENTER. */
+    private static String warehouseType(String displayName) {
+        return Arrays.stream(WarehouseType.values())
+                .filter(type -> type.displayName().equalsIgnoreCase(displayName))
+                .map(WarehouseType::name)
+                .findFirst()
+                .orElse(displayName);
     }
 
     /** "bolsa" → BAG; "metro cúbico" → M3. */
