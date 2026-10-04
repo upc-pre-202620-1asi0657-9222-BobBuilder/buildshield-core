@@ -1,0 +1,30 @@
+name: CI
+
+# Compila, ejecuta pruebas unitarias y de integración (Testcontainers),
+# valida la arquitectura con ArchUnit y verifica la cobertura con JaCoCo.
+on:
+  pull_request:
+    branches: [develop, main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Verify
+        run: ./mvnw -B verify
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-report
+          path: target/site/jacoco/
+          if-no-files-found: ignore
