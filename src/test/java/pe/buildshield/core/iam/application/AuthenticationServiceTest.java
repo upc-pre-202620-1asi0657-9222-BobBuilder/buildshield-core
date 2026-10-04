@@ -86,6 +86,17 @@ class AuthenticationServiceTest {
     }
 
     @Test
+    void access_token_expiry_is_reported_in_whole_seconds_like_the_jwt_exp_claim() {
+        when(users.findByEmail(any())).thenReturn(Optional.of(ANA));
+        when(encoder.matches(anyString(), anyString())).thenReturn(true);
+        when(jwtIssuer.issue(any())).thenReturn(new JwtTokenIssuer.IssuedToken("jwt", "jti",
+                Instant.parse("2026-10-04T12:15:00.987654Z")));
+
+        assertThat(service.signIn("ana@andina.pe", "Segura123").accessTokenExpiresAt())
+                .isEqualTo(Instant.parse("2026-10-04T12:15:00Z"));
+    }
+
+    @Test
     void wrong_password_is_rejected_with_a_generic_error() {
         when(users.findByEmail(any())).thenReturn(Optional.of(ANA));
         when(encoder.matches("Otra1234", "$2a$12$hash")).thenReturn(false);

@@ -18,6 +18,7 @@ import pe.buildshield.core.iam.domain.model.UserRepository;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -118,7 +119,9 @@ public class AuthenticationService {
     private SessionTokens sessionTokens(User user, String rawRefreshToken, RefreshToken refreshToken) {
         JwtTokenIssuer.IssuedToken access = jwtIssuer.issue(
                 new TenantInfo(user.organizationId(), user.id(), user.role().name()));
-        return new SessionTokens(access.value(), access.expiresAt(), rawRefreshToken, refreshToken.expiresAt());
+        // El claim exp del JWT va en segundos: se informa el mismo instante que valida el servidor.
+        return new SessionTokens(access.value(), access.expiresAt().truncatedTo(ChronoUnit.SECONDS),
+                rawRefreshToken, refreshToken.expiresAt());
     }
 
     private static Optional<EmailAddress> parseEmail(String rawEmail) {
