@@ -22,7 +22,9 @@ import pe.buildshield.core.iam.application.PasswordResetService;
 import pe.buildshield.core.iam.application.SignUpService;
 import pe.buildshield.core.iam.application.UserManagementService;
 import pe.buildshield.core.iam.domain.model.Role;
+import pe.buildshield.core.organization.application.WarehouseService;
 import pe.buildshield.core.organization.application.WorksiteService;
+import pe.buildshield.core.organization.domain.model.WarehouseType;
 import pe.buildshield.core.organization.domain.model.Location;
 import pe.buildshield.core.support.WebSliceTest;
 
@@ -52,16 +54,18 @@ class RoleAuthorizationTest {
 
     private static final UUID ANY_ID = UUID.fromString("00000000-0000-0000-0000-0000000000aa");
 
-    private static final Map<String, String> BODIES = Map.of(
-            "sign-up", "{\"ruc\":\"20123456789\",\"legalName\":\"Andina\",\"adminFullName\":\"Ana\",\"adminEmail\":\"ana@andina.pe\",\"password\":\"Segura123\"}",
-            "sign-in", "{\"email\":\"ana@andina.pe\",\"password\":\"Segura123\"}",
-            "refresh", "{\"refreshToken\":\"abc\"}",
-            "sign-out", "{\"refreshToken\":\"abc\"}",
-            "reset", "{\"email\":\"ana@andina.pe\"}",
-            "reset-confirm", "{\"token\":\"abc\",\"newPassword\":\"Nueva12345\"}",
-            "worksite", "{\"name\":\"Torre\",\"address\":\"Av. 1\",\"district\":\"Lince\",\"city\":\"Lima\",\"startDate\":\"2026-11-01\"}",
-            "patch-worksite", "{\"name\":\"Torre 2\"}",
-            "create-user", "{\"fullName\":\"Rosa\",\"email\":\"rosa@andina.pe\",\"role\":\"WAREHOUSE_MANAGER\",\"password\":\"Almacen123\"}");
+    private static final Map<String, String> BODIES = Map.ofEntries(
+            Map.entry("sign-up", "{\"ruc\":\"20123456789\",\"legalName\":\"Andina\",\"adminFullName\":\"Ana\",\"adminEmail\":\"ana@andina.pe\",\"password\":\"Segura123\"}"),
+            Map.entry("sign-in", "{\"email\":\"ana@andina.pe\",\"password\":\"Segura123\"}"),
+            Map.entry("refresh", "{\"refreshToken\":\"abc\"}"),
+            Map.entry("sign-out", "{\"refreshToken\":\"abc\"}"),
+            Map.entry("reset", "{\"email\":\"ana@andina.pe\"}"),
+            Map.entry("reset-confirm", "{\"token\":\"abc\",\"newPassword\":\"Nueva12345\"}"),
+            Map.entry("worksite", "{\"name\":\"Torre\",\"address\":\"Av. 1\",\"district\":\"Lince\",\"city\":\"Lima\",\"startDate\":\"2026-11-01\"}"),
+            Map.entry("patch-worksite", "{\"name\":\"Torre 2\"}"),
+            Map.entry("warehouse", "{\"name\":\"Central\",\"type\":\"WAREHOUSE\",\"address\":\"Av. 1\"}"),
+            Map.entry("deactivate", "{\"active\":false}"),
+            Map.entry("create-user", "{\"fullName\":\"Rosa\",\"email\":\"rosa@andina.pe\",\"role\":\"WAREHOUSE_MANAGER\",\"password\":\"Almacen123\"}"));
 
     @Autowired
     MockMvc mvc;
@@ -91,6 +95,9 @@ class RoleAuthorizationTest {
     @MockitoBean
     WorksiteService worksiteService;
 
+    @MockitoBean
+    WarehouseService warehouseService;
+
     @BeforeEach
     void stubServices() {
         when(signUpService.signUp(any())).thenReturn(new SignUpService.SignUpResult(UUID.randomUUID(), UUID.randomUUID()));
@@ -106,6 +113,12 @@ class RoleAuthorizationTest {
         when(worksiteService.update(any(), any())).thenReturn(worksite);
         when(worksiteService.get(any())).thenReturn(worksite);
         when(worksiteService.list()).thenReturn(List.of(worksite));
+        WarehouseService.WarehouseView warehouse = new WarehouseService.WarehouseView(ANY_ID, "Central",
+                WarehouseType.WAREHOUSE, "Av. 1", true);
+        when(warehouseService.register(any())).thenReturn(warehouse);
+        when(warehouseService.update(any(), any())).thenReturn(warehouse);
+        when(warehouseService.get(any())).thenReturn(warehouse);
+        when(warehouseService.list()).thenReturn(List.of(warehouse));
     }
 
     @ParameterizedTest(name = "{0} {1} como {2} -> {3}")
@@ -141,6 +154,19 @@ class RoleAuthorizationTest {
             "PATCH, /api/v1/worksites/00000000-0000-0000-0000-0000000000aa, patch-worksite, ADMINISTRATOR, 200",
             "PATCH, /api/v1/worksites/00000000-0000-0000-0000-0000000000aa, patch-worksite, WAREHOUSE_MANAGER, 403",
             "PATCH, /api/v1/worksites/00000000-0000-0000-0000-0000000000aa, patch-worksite, SITE_MANAGER, 403",
+            "POST , /api/v1/warehouses, warehouse, ANONYMOUS, 401",
+            "POST , /api/v1/warehouses, warehouse, ADMINISTRATOR, 201",
+            "POST , /api/v1/warehouses, warehouse, WAREHOUSE_MANAGER, 403",
+            "POST , /api/v1/warehouses, warehouse, SITE_MANAGER, 403",
+            "GET  , /api/v1/warehouses, , ANONYMOUS, 401",
+            "GET  , /api/v1/warehouses, , ADMINISTRATOR, 200",
+            "GET  , /api/v1/warehouses, , WAREHOUSE_MANAGER, 200",
+            "GET  , /api/v1/warehouses, , SITE_MANAGER, 200",
+            "GET  , /api/v1/warehouses/00000000-0000-0000-0000-0000000000aa, , WAREHOUSE_MANAGER, 200",
+            "PATCH, /api/v1/warehouses/00000000-0000-0000-0000-0000000000aa, deactivate, ANONYMOUS, 401",
+            "PATCH, /api/v1/warehouses/00000000-0000-0000-0000-0000000000aa, deactivate, ADMINISTRATOR, 200",
+            "PATCH, /api/v1/warehouses/00000000-0000-0000-0000-0000000000aa, deactivate, WAREHOUSE_MANAGER, 403",
+            "PATCH, /api/v1/warehouses/00000000-0000-0000-0000-0000000000aa, deactivate, SITE_MANAGER, 403",
     })
     void endpoint_is_allowed_only_for_its_roles(String method, String path, String body, String who, int expectedStatus)
             throws Exception {
