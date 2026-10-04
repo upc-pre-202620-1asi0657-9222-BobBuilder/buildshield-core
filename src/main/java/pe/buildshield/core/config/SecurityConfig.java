@@ -1,5 +1,7 @@
 package pe.buildshield.core.config;
 
+import io.swagger.v3.oas.annotations.enums.SecuritySchemeType;
+import io.swagger.v3.oas.annotations.security.SecurityScheme;
 import org.springframework.boot.actuate.autoconfigure.security.servlet.EndpointRequest;
 import org.springframework.boot.actuate.health.HealthEndpoint;
 import org.springframework.context.annotation.Bean;
@@ -10,14 +12,19 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.HttpStatusEntryPoint;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import pe.buildshield.commons.error.ErrorResponse;
+import pe.buildshield.commons.error.ErrorResponseWriter;
+import pe.buildshield.commons.security.JwtAuthenticationFilter;
 
 /**
- * Seguridad del Core: API sin sesión de servidor. Por URL solo se separa lo público de lo
- * autenticado; la autorización por rol está en cada endpoint con {@code @PreAuthorize}.
+ * Seguridad del Core: API sin sesión de servidor, autenticada con el JWT de commons. Por URL solo se
+ * separa lo público de lo autenticado; la autorización por rol está en cada endpoint con
+ * {@code @PreAuthorize}.
  */
 @Configuration
 @EnableMethodSecurity
+@SecurityScheme(name = "bearer", type = SecuritySchemeType.HTTP, scheme = "bearer", bearerFormat = "JWT")
 public class SecurityConfig {
 
     /** Endpoints que no requieren token: registro, inicio de sesión, renovación y recuperación. */
@@ -32,7 +39,8 @@ public class SecurityConfig {
     static final String[] API_DOCS = {"/api/v1/api-docs/**", "/swagger-ui/**", "/swagger-ui.html"};
 
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationFilter jwtAuthenticationFilter,
+            ErrorResponseWriter errorWriter) throws Exception {
         return http
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -42,7 +50,13 @@ public class SecurityConfig {
                         .requestMatchers(API_DOCS).permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(errors -> errors
-                        .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
+                        .authenticationEntryPoint((request, response, ex) -> errorWriter.write(response,
+                                HttpStatus.UNAUTHORIZED.value(),
+                                ErrorResponse.of("UNAUTHENTICATED", "Debes iniciar sesión para usar este recurso")))
+                        .accessDeniedHandler((request, response, ex) -> errorWriter.write(response,
+                                HttpStatus.FORBIDDEN.value(),
+                                ErrorResponse.of("FORBIDDEN", "No tienes permiso para realizar esta operación"))))
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
     }
 }

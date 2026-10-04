@@ -10,3 +10,11 @@ spring:
     port: ${RABBITMQ_PORT:5672}
     username: ${RABBITMQ_USER}
     password: ${RABBITMQ_PASSWORD}
+
+buildshield:
+  security:
+    # Claves RSA en PEM (ver README: cómo generarlas con openssl).
+    jwt-public-key: ${BUILDSHIELD_JWT_PUBLIC_KEY}
+    jwt-private-key: ${BUILDSHIELD_JWT_PRIVATE_KEY}
+  iam:
+    password-reset-url: ${BUILDSHIELD_PASSWORD_RESET_URL:http://localhost:4200/restablecer-contrasena}
