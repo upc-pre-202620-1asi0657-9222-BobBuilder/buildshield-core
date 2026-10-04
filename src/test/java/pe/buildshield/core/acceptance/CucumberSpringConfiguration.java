@@ -1,6 +1,9 @@
 package pe.buildshield.core.acceptance;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.cucumber.spring.CucumberContextConfiguration;
+import io.cucumber.spring.ScenarioScope;
+import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -40,6 +43,12 @@ public class CucumberSpringConfiguration {
         @Primary
         CapturingEmailPort capturingEmailPort() {
             return new CapturingEmailPort();
+        }
+
+        @Bean
+        @ScenarioScope
+        ScenarioSession scenarioSession(MockMvc mvc, ObjectMapper json) {
+            return new ScenarioSession(mvc, json);
         }
     }
 
