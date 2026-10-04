@@ -1,5 +1,4 @@
 # language: es
-@pendiente
 Característica: US14 Registro de obra
   Como administrador de la organización
   quiero registrar las obras con su ubicación y fechas

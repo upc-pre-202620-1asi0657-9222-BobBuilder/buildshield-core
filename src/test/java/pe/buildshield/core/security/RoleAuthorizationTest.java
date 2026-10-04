@@ -1,4 +1,4 @@
-package pe.buildshield.core.iam.interfaces.rest;
+package pe.buildshield.core.security;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -22,9 +22,12 @@ import pe.buildshield.core.iam.application.PasswordResetService;
 import pe.buildshield.core.iam.application.SignUpService;
 import pe.buildshield.core.iam.application.UserManagementService;
 import pe.buildshield.core.iam.domain.model.Role;
+import pe.buildshield.core.organization.application.WorksiteService;
+import pe.buildshield.core.organization.domain.model.Location;
 import pe.buildshield.core.support.WebSliceTest;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -34,16 +37,20 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * Matriz de autorización: cada endpoint del módulo iam contra usuario anónimo y cada rol. Además
- * verifica que ningún endpoint quede sin una regla explícita de {@code @PreAuthorize}.
+ * Matriz de autorización de toda la API del Core: cada endpoint contra usuario anónimo y cada rol
+ * (los servicios están simulados). Además verifica que ningún endpoint quede sin una regla explícita
+ * de {@code @PreAuthorize}.
  */
-@WebMvcTest({AuthController.class, UsersController.class})
+@WebMvcTest
 @WebSliceTest
 class RoleAuthorizationTest {
+
+    private static final UUID ANY_ID = UUID.fromString("00000000-0000-0000-0000-0000000000aa");
 
     private static final Map<String, String> BODIES = Map.of(
             "sign-up", "{\"ruc\":\"20123456789\",\"legalName\":\"Andina\",\"adminFullName\":\"Ana\",\"adminEmail\":\"ana@andina.pe\",\"password\":\"Segura123\"}",
@@ -52,6 +59,8 @@ class RoleAuthorizationTest {
             "sign-out", "{\"refreshToken\":\"abc\"}",
             "reset", "{\"email\":\"ana@andina.pe\"}",
             "reset-confirm", "{\"token\":\"abc\",\"newPassword\":\"Nueva12345\"}",
+            "worksite", "{\"name\":\"Torre\",\"address\":\"Av. 1\",\"district\":\"Lince\",\"city\":\"Lima\",\"startDate\":\"2026-11-01\"}",
+            "patch-worksite", "{\"name\":\"Torre 2\"}",
             "create-user", "{\"fullName\":\"Rosa\",\"email\":\"rosa@andina.pe\",\"role\":\"WAREHOUSE_MANAGER\",\"password\":\"Almacen123\"}");
 
     @Autowired
@@ -79,6 +88,9 @@ class RoleAuthorizationTest {
     @MockitoBean
     UserManagementService userManagementService;
 
+    @MockitoBean
+    WorksiteService worksiteService;
+
     @BeforeEach
     void stubServices() {
         when(signUpService.signUp(any())).thenReturn(new SignUpService.SignUpResult(UUID.randomUUID(), UUID.randomUUID()));
@@ -88,6 +100,12 @@ class RoleAuthorizationTest {
         when(userManagementService.create(any())).thenReturn(new UserManagementService.UserView(
                 UUID.randomUUID(), "rosa@andina.pe", "Rosa", Role.WAREHOUSE_MANAGER, true));
         when(userManagementService.list()).thenReturn(List.of());
+        WorksiteService.WorksiteView worksite = new WorksiteService.WorksiteView(ANY_ID, "Torre",
+                new Location("Av. 1", "Lince", "Lima", null, null), LocalDate.of(2026, 11, 1), null);
+        when(worksiteService.register(any())).thenReturn(worksite);
+        when(worksiteService.update(any(), any())).thenReturn(worksite);
+        when(worksiteService.get(any())).thenReturn(worksite);
+        when(worksiteService.list()).thenReturn(List.of(worksite));
     }
 
     @ParameterizedTest(name = "{0} {1} como {2} -> {3}")
@@ -110,10 +128,27 @@ class RoleAuthorizationTest {
             "GET , /api/v1/users        ,            , ADMINISTRATOR    , 200",
             "GET , /api/v1/users        ,            , WAREHOUSE_MANAGER, 403",
             "GET , /api/v1/users        ,            , SITE_MANAGER     , 403",
+            "POST , /api/v1/worksites, worksite, ANONYMOUS, 401",
+            "POST , /api/v1/worksites, worksite, ADMINISTRATOR, 201",
+            "POST , /api/v1/worksites, worksite, WAREHOUSE_MANAGER, 403",
+            "POST , /api/v1/worksites, worksite, SITE_MANAGER, 403",
+            "GET  , /api/v1/worksites, , ANONYMOUS, 401",
+            "GET  , /api/v1/worksites, , ADMINISTRATOR, 200",
+            "GET  , /api/v1/worksites, , WAREHOUSE_MANAGER, 200",
+            "GET  , /api/v1/worksites, , SITE_MANAGER, 200",
+            "GET  , /api/v1/worksites/00000000-0000-0000-0000-0000000000aa, , SITE_MANAGER, 200",
+            "PATCH, /api/v1/worksites/00000000-0000-0000-0000-0000000000aa, patch-worksite, ANONYMOUS, 401",
+            "PATCH, /api/v1/worksites/00000000-0000-0000-0000-0000000000aa, patch-worksite, ADMINISTRATOR, 200",
+            "PATCH, /api/v1/worksites/00000000-0000-0000-0000-0000000000aa, patch-worksite, WAREHOUSE_MANAGER, 403",
+            "PATCH, /api/v1/worksites/00000000-0000-0000-0000-0000000000aa, patch-worksite, SITE_MANAGER, 403",
     })
     void endpoint_is_allowed_only_for_its_roles(String method, String path, String body, String who, int expectedStatus)
             throws Exception {
-        MockHttpServletRequestBuilder request = "GET".equals(method) ? get(path) : post(path);
+        MockHttpServletRequestBuilder request = switch (method) {
+            case "GET" -> get(path);
+            case "PATCH" -> patch(path);
+            default -> post(path);
+        };
         if (body != null) {
             request.contentType(MediaType.APPLICATION_JSON).content(BODIES.get(body));
         }
@@ -126,7 +161,7 @@ class RoleAuthorizationTest {
     }
 
     @Test
-    void every_iam_endpoint_declares_its_authorization_rule() {
+    void every_core_endpoint_declares_its_authorization_rule() {
         List<String> withoutRule = handlerMapping.getHandlerMethods().values().stream()
                 .filter(handler -> handler.getBeanType().getPackageName().startsWith("pe.buildshield.core"))
                 .filter(handler -> !hasPreAuthorize(handler))
