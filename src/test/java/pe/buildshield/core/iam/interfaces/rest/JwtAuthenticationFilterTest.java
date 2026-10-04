@@ -11,6 +11,7 @@ import pe.buildshield.commons.security.PemKeys;
 import pe.buildshield.commons.security.RevokedTokenStore;
 import pe.buildshield.commons.tenant.TenantInfo;
 import pe.buildshield.core.iam.application.AuthenticationService;
+import pe.buildshield.core.iam.application.PasswordResetService;
 import pe.buildshield.core.iam.application.SignUpService;
 import pe.buildshield.core.support.WebSliceTest;
 
@@ -54,6 +55,9 @@ class JwtAuthenticationFilterTest {
 
     @MockitoBean
     SignUpService signUpService;
+
+    @MockitoBean
+    PasswordResetService passwordResetService;
 
     @Test
     void request_without_token_is_401() throws Exception {

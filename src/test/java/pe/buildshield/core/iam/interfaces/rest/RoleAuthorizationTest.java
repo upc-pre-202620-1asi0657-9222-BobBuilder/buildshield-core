@@ -18,6 +18,7 @@ import pe.buildshield.commons.security.JwtTokenIssuer;
 import pe.buildshield.commons.security.RevokedTokenStore;
 import pe.buildshield.commons.tenant.TenantInfo;
 import pe.buildshield.core.iam.application.AuthenticationService;
+import pe.buildshield.core.iam.application.PasswordResetService;
 import pe.buildshield.core.iam.application.SignUpService;
 import pe.buildshield.core.iam.application.UserManagementService;
 import pe.buildshield.core.iam.domain.model.Role;
@@ -49,6 +50,8 @@ class RoleAuthorizationTest {
             "sign-in", "{\"email\":\"ana@andina.pe\",\"password\":\"Segura123\"}",
             "refresh", "{\"refreshToken\":\"abc\"}",
             "sign-out", "{\"refreshToken\":\"abc\"}",
+            "reset", "{\"email\":\"ana@andina.pe\"}",
+            "reset-confirm", "{\"token\":\"abc\",\"newPassword\":\"Nueva12345\"}",
             "create-user", "{\"fullName\":\"Rosa\",\"email\":\"rosa@andina.pe\",\"role\":\"WAREHOUSE_MANAGER\",\"password\":\"Almacen123\"}");
 
     @Autowired
@@ -66,6 +69,9 @@ class RoleAuthorizationTest {
 
     @MockitoBean
     SignUpService signUpService;
+
+    @MockitoBean
+    PasswordResetService passwordResetService;
 
     @MockitoBean
     AuthenticationService authenticationService;
@@ -90,6 +96,8 @@ class RoleAuthorizationTest {
             "POST, /api/v1/auth/sign-up , sign-up    , ANONYMOUS        , 201",
             "POST, /api/v1/auth/sign-in , sign-in    , ANONYMOUS        , 200",
             "POST, /api/v1/auth/refresh , refresh    , ANONYMOUS        , 200",
+            "POST, /api/v1/auth/password-reset        , reset        , ANONYMOUS, 202",
+            "POST, /api/v1/auth/password-reset/confirm, reset-confirm, ANONYMOUS, 204",
             "POST, /api/v1/auth/sign-out, sign-out   , ANONYMOUS        , 401",
             "POST, /api/v1/auth/sign-out, sign-out   , ADMINISTRATOR    , 204",
             "POST, /api/v1/auth/sign-out, sign-out   , WAREHOUSE_MANAGER, 204",

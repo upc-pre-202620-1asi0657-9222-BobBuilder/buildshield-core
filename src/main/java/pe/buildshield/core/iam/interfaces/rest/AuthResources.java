@@ -46,6 +46,17 @@ final class AuthResources {
     record SignOutRequest(String refreshToken) {
     }
 
+    @Schema(description = "Correo de la cuenta a recuperar")
+    record PasswordResetRequest(@Schema(example = "ana@andina.pe") @NotBlank String email) {
+    }
+
+    @Schema(description = "Token del enlace recibido por correo y nueva contraseña")
+    record PasswordResetConfirmRequest(
+            @NotBlank String token,
+            @Schema(description = "8 a 72 caracteres, con al menos una letra y un número", example = "Nueva12345")
+            @NotBlank String newPassword) {
+    }
+
     @Schema(description = "Tokens de la sesión")
     record TokenResponse(
             @Schema(description = "JWT RS256 para la cabecera Authorization: Bearer; vence en 15 minutos")

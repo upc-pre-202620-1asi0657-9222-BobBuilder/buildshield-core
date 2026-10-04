@@ -19,7 +19,10 @@ import org.springframework.web.bind.annotation.RestController;
 import pe.buildshield.commons.error.ErrorResponse;
 import pe.buildshield.commons.security.AuthenticatedUser;
 import pe.buildshield.core.iam.application.AuthenticationService;
+import pe.buildshield.core.iam.application.PasswordResetService;
 import pe.buildshield.core.iam.application.SignUpService;
+import pe.buildshield.core.iam.interfaces.rest.AuthResources.PasswordResetConfirmRequest;
+import pe.buildshield.core.iam.interfaces.rest.AuthResources.PasswordResetRequest;
 import pe.buildshield.core.iam.interfaces.rest.AuthResources.RefreshRequest;
 import pe.buildshield.core.iam.interfaces.rest.AuthResources.SignInRequest;
 import pe.buildshield.core.iam.interfaces.rest.AuthResources.SignOutRequest;
@@ -34,10 +37,13 @@ class AuthController {
 
     private final SignUpService signUpService;
     private final AuthenticationService authenticationService;
+    private final PasswordResetService passwordResetService;
 
-    AuthController(SignUpService signUpService, AuthenticationService authenticationService) {
+    AuthController(SignUpService signUpService, AuthenticationService authenticationService,
+            PasswordResetService passwordResetService) {
         this.signUpService = signUpService;
         this.authenticationService = authenticationService;
+        this.passwordResetService = passwordResetService;
     }
 
     @PostMapping("/sign-up")
@@ -90,5 +96,28 @@ class AuthController {
             @RequestBody(required = false) SignOutRequest request) {
         authenticationService.signOut(user.tenant().userId(), user.tokenId(),
                 request == null ? null : request.refreshToken());
+    }
+
+    @PostMapping("/password-reset")
+    @PreAuthorize("permitAll()")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    @Operation(summary = "Solicitar la recuperación de contraseña",
+            description = "Si el correo está registrado, envía un enlace válido por 30 minutos. "
+                    + "La respuesta es la misma exista o no el correo.")
+    @ApiResponse(responseCode = "202", description = "Solicitud recibida")
+    void requestPasswordReset(@Valid @RequestBody PasswordResetRequest request) {
+        passwordResetService.requestReset(request.email());
+    }
+
+    @PostMapping("/password-reset/confirm")
+    @PreAuthorize("permitAll()")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Operation(summary = "Definir la nueva contraseña con el enlace recibido",
+            description = "El enlace se usa una sola vez; además se cierran las sesiones abiertas del usuario.")
+    @ApiResponse(responseCode = "204", description = "Contraseña cambiada")
+    @ApiResponse(responseCode = "400", description = "Enlace inválido, vencido o ya usado, o contraseña insegura",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    void confirmPasswordReset(@Valid @RequestBody PasswordResetConfirmRequest request) {
+        passwordResetService.confirmReset(request.token(), request.newPassword());
     }
 }
