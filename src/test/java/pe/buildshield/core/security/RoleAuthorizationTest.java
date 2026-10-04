@@ -22,12 +22,15 @@ import pe.buildshield.core.iam.application.PasswordResetService;
 import pe.buildshield.core.iam.application.SignUpService;
 import pe.buildshield.core.iam.application.UserManagementService;
 import pe.buildshield.core.iam.domain.model.Role;
+import pe.buildshield.core.organization.application.MaterialService;
 import pe.buildshield.core.organization.application.WarehouseService;
 import pe.buildshield.core.organization.application.WorksiteService;
+import pe.buildshield.core.organization.domain.model.UnitOfMeasure;
 import pe.buildshield.core.organization.domain.model.WarehouseType;
 import pe.buildshield.core.organization.domain.model.Location;
 import pe.buildshield.core.support.WebSliceTest;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -65,6 +68,8 @@ class RoleAuthorizationTest {
             Map.entry("patch-worksite", "{\"name\":\"Torre 2\"}"),
             Map.entry("warehouse", "{\"name\":\"Central\",\"type\":\"WAREHOUSE\",\"address\":\"Av. 1\"}"),
             Map.entry("deactivate", "{\"active\":false}"),
+            Map.entry("material", "{\"sku\":\"CEM-001\",\"name\":\"Cemento\",\"unit\":\"BAG\",\"wasteTolerancePercent\":2.5}"),
+            Map.entry("patch-material", "{\"wasteTolerancePercent\":1.5}"),
             Map.entry("create-user", "{\"fullName\":\"Rosa\",\"email\":\"rosa@andina.pe\",\"role\":\"WAREHOUSE_MANAGER\",\"password\":\"Almacen123\"}"));
 
     @Autowired
@@ -98,6 +103,9 @@ class RoleAuthorizationTest {
     @MockitoBean
     WarehouseService warehouseService;
 
+    @MockitoBean
+    MaterialService materialService;
+
     @BeforeEach
     void stubServices() {
         when(signUpService.signUp(any())).thenReturn(new SignUpService.SignUpResult(UUID.randomUUID(), UUID.randomUUID()));
@@ -119,6 +127,12 @@ class RoleAuthorizationTest {
         when(warehouseService.update(any(), any())).thenReturn(warehouse);
         when(warehouseService.get(any())).thenReturn(warehouse);
         when(warehouseService.list()).thenReturn(List.of(warehouse));
+        MaterialService.MaterialView material = new MaterialService.MaterialView(ANY_ID, "CEM-001", "Cemento",
+                UnitOfMeasure.BAG, new BigDecimal("2.50"), true);
+        when(materialService.register(any())).thenReturn(material);
+        when(materialService.update(any(), any())).thenReturn(material);
+        when(materialService.get(any())).thenReturn(material);
+        when(materialService.list()).thenReturn(List.of(material));
     }
 
     @ParameterizedTest(name = "{0} {1} como {2} -> {3}")
@@ -167,6 +181,22 @@ class RoleAuthorizationTest {
             "PATCH, /api/v1/warehouses/00000000-0000-0000-0000-0000000000aa, deactivate, ADMINISTRATOR, 200",
             "PATCH, /api/v1/warehouses/00000000-0000-0000-0000-0000000000aa, deactivate, WAREHOUSE_MANAGER, 403",
             "PATCH, /api/v1/warehouses/00000000-0000-0000-0000-0000000000aa, deactivate, SITE_MANAGER, 403",
+            "POST , /api/v1/materials, material, ANONYMOUS, 401",
+            "GET  , /api/v1/materials, , ANONYMOUS, 401",
+            "GET  , /api/v1/materials/00000000-0000-0000-0000-0000000000aa, , ANONYMOUS, 401",
+            "PATCH, /api/v1/materials/00000000-0000-0000-0000-0000000000aa, patch-material, ANONYMOUS, 401",
+            "POST , /api/v1/materials, material, ADMINISTRATOR, 201",
+            "GET  , /api/v1/materials, , ADMINISTRATOR, 200",
+            "GET  , /api/v1/materials/00000000-0000-0000-0000-0000000000aa, , ADMINISTRATOR, 200",
+            "PATCH, /api/v1/materials/00000000-0000-0000-0000-0000000000aa, patch-material, ADMINISTRATOR, 200",
+            "POST , /api/v1/materials, material, WAREHOUSE_MANAGER, 403",
+            "GET  , /api/v1/materials, , WAREHOUSE_MANAGER, 200",
+            "GET  , /api/v1/materials/00000000-0000-0000-0000-0000000000aa, , WAREHOUSE_MANAGER, 200",
+            "PATCH, /api/v1/materials/00000000-0000-0000-0000-0000000000aa, patch-material, WAREHOUSE_MANAGER, 403",
+            "POST , /api/v1/materials, material, SITE_MANAGER, 403",
+            "GET  , /api/v1/materials, , SITE_MANAGER, 200",
+            "GET  , /api/v1/materials/00000000-0000-0000-0000-0000000000aa, , SITE_MANAGER, 200",
+            "PATCH, /api/v1/materials/00000000-0000-0000-0000-0000000000aa, patch-material, SITE_MANAGER, 403",
     })
     void endpoint_is_allowed_only_for_its_roles(String method, String path, String body, String who, int expectedStatus)
             throws Exception {

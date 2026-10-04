@@ -2,6 +2,8 @@ package pe.buildshield.core.organization.application;
 
 import org.springframework.stereotype.Component;
 import pe.buildshield.commons.tenant.TenantContext;
+import pe.buildshield.core.organization.domain.model.Material;
+import pe.buildshield.core.organization.domain.model.MaterialRepository;
 import pe.buildshield.core.organization.domain.model.Warehouse;
 import pe.buildshield.core.organization.domain.model.WarehouseRepository;
 import pe.buildshield.core.organization.domain.model.Worksite;
@@ -20,10 +22,12 @@ public class SiteVisibility {
 
     private final WorksiteRepository worksites;
     private final WarehouseRepository warehouses;
+    private final MaterialRepository materials;
 
-    public SiteVisibility(WorksiteRepository worksites, WarehouseRepository warehouses) {
+    public SiteVisibility(WorksiteRepository worksites, WarehouseRepository warehouses, MaterialRepository materials) {
         this.worksites = worksites;
         this.warehouses = warehouses;
+        this.materials = materials;
     }
 
     boolean isAdministrator() {
@@ -44,5 +48,14 @@ public class SiteVisibility {
 
     boolean canSee(Warehouse warehouse) {
         return true;
+    }
+
+    /** Todos ven el catálogo; los encargados, solo los materiales activos. */
+    List<Material> visibleMaterials() {
+        return isAdministrator() ? materials.findAll() : materials.findAllActive();
+    }
+
+    boolean canSee(Material material) {
+        return material.active() || isAdministrator();
     }
 }

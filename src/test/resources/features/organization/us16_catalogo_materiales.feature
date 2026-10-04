@@ -1,5 +1,4 @@
 # language: es
-@pendiente
 Característica: US16 Catálogo de materiales
   Como administrador de la organización
   quiero mantener el catálogo de materiales con su unidad y tolerancia de merma
