@@ -1,4 +1,5 @@
 # language: es
+@US05
 Característica: US05 Recuperación de contraseña
   Como usuario que olvidó su contraseña
   quiero recibir un enlace para definir una nueva

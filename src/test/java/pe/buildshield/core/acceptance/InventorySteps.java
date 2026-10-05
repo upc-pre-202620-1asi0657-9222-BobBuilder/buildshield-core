@@ -5,14 +5,13 @@ import io.cucumber.java.es.Cuando;
 import io.cucumber.java.es.Dado;
 import io.cucumber.java.es.Entonces;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.test.web.servlet.MvcResult;
 
 import java.math.BigDecimal;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static pe.buildshield.core.acceptance.ApiRequest.get;
+import static pe.buildshield.core.acceptance.ApiRequest.post;
 
 /** Pasos de carga y consulta de existencias (módulo inventory). */
 public class InventorySteps {
@@ -36,9 +35,9 @@ public class InventorySteps {
 
     @Entonces("el stock disponible del material {string} en el almacén {string} es {string}")
     public void availableStockIs(String sku, String warehouse, String expected) throws Exception {
-        MvcResult response = session.perform(get("/api/v1/stock").param("warehouseId", session.id(warehouse).toString()),
+        ApiResponse response = session.perform(get("/api/v1/stock").param("warehouseId", session.id(warehouse).toString()),
                 null, session.accessToken());
-        assertThat(response.getResponse().getStatus()).isEqualTo(200);
+        assertThat(response.status()).isEqualTo(200);
         JsonNode found = null;
         for (JsonNode item : session.read(response)) {
             if (item.path("sku").asText().equalsIgnoreCase(sku)) {

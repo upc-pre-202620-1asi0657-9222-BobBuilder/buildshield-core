@@ -1,4 +1,5 @@
 # language: es
+@US02
 Característica: US02 Inicio de sesión
   Como usuario de una organización
   quiero iniciar sesión con mi correo y contraseña

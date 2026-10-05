@@ -1,4 +1,5 @@
 # language: es
+@US01
 Característica: US01 Registro de organización
   Como representante de una empresa constructora
   quiero registrar mi organización con su administrador

@@ -3,13 +3,12 @@ package pe.buildshield.core.acceptance;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.cucumber.spring.CucumberContextConfiguration;
 import io.cucumber.spring.ScenarioScope;
-import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
+import org.springframework.core.env.Environment;
 import org.springframework.test.context.ActiveProfiles;
 import pe.buildshield.core.iam.application.EmailPort;
 import pe.buildshield.core.iam.domain.model.EmailAddress;
@@ -21,12 +20,11 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
- * Contexto de los escenarios: Core completo + MockMvc + Testcontainers, con un reloj controlable y
+ * Contexto de los escenarios: Core completo en un servidor HTTP real (puerto aleatorio) + Testcontainers, con un reloj controlable y
  * un {@link EmailPort} que guarda los correos para leer el enlace de recuperación.
  */
 @CucumberContextConfiguration
-@SpringBootTest
-@AutoConfigureMockMvc
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
 @Import({ContainersConfig.class, CucumberSpringConfiguration.AcceptanceBeans.class})
 public class CucumberSpringConfiguration {
@@ -47,8 +45,8 @@ public class CucumberSpringConfiguration {
 
         @Bean
         @ScenarioScope
-        ScenarioSession scenarioSession(MockMvc mvc, ObjectMapper json) {
-            return new ScenarioSession(mvc, json);
+        ScenarioSession scenarioSession(Environment environment, ObjectMapper json) {
+            return new ScenarioSession("http://localhost:" + environment.getRequiredProperty("local.server.port"), json);
         }
     }
 

@@ -6,7 +6,6 @@ import io.cucumber.java.es.Dado;
 import io.cucumber.java.es.Entonces;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import org.springframework.test.web.servlet.MvcResult;
 import pe.buildshield.core.organization.domain.model.UnitOfMeasure;
 import pe.buildshield.core.organization.domain.model.WarehouseType;
 
@@ -18,9 +17,9 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static pe.buildshield.core.acceptance.ApiRequest.get;
+import static pe.buildshield.core.acceptance.ApiRequest.patch;
+import static pe.buildshield.core.acceptance.ApiRequest.post;
 
 /** Pasos de las historias US14 a US17 (módulo organization). */
 public class OrganizationSteps {
@@ -100,6 +99,12 @@ public class OrganizationSteps {
     @Cuando("cambio la tolerancia de merma del material {string} a {string} %")
     public void changeTolerance(String sku, String tolerance) throws Exception {
         session.send(patch("/api/v1/materials/" + session.id(sku)), Map.of("wasteTolerancePercent", new BigDecimal(tolerance)));
+    }
+
+    @Dado("que retiré del catálogo el material {string}")
+    public void materialRetired(String sku) throws Exception {
+        session.send(patch("/api/v1/materials/" + session.id(sku)), Map.of("active", false));
+        session.expectStatus(200);
     }
 
     @Cuando("consulto el catálogo de materiales")
@@ -247,7 +252,7 @@ public class OrganizationSteps {
 
     /** Busca con la sesión actual, sin cambiar la última respuesta. */
     private JsonNode findAssignment(String email, String site) throws Exception {
-        MvcResult response = session.perform(get("/api/v1/assignments"), null, session.accessToken());
+        ApiResponse response = session.perform(get("/api/v1/assignments"), null, session.accessToken());
         for (JsonNode assignment : session.read(response)) {
             if (assignment.path("userId").asText().equals(session.id(email).toString())
                     && assignment.path("siteId").asText().equals(session.id(site).toString())) {
@@ -258,8 +263,8 @@ public class OrganizationSteps {
     }
 
     private JsonNode warehouse(String name) throws Exception {
-        MvcResult response = session.perform(get("/api/v1/warehouses/" + session.id(name)), null, session.accessToken());
-        assertThat(response.getResponse().getStatus()).isEqualTo(200);
+        ApiResponse response = session.perform(get("/api/v1/warehouses/" + session.id(name)), null, session.accessToken());
+        assertThat(response.status()).isEqualTo(200);
         return session.read(response);
     }
 
