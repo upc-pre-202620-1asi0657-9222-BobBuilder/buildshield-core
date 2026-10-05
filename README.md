@@ -1,11 +1,10 @@
 # buildshield-core
 
-Core logístico de BuildShield: **monolito modular** con los módulos `iam`, `organization`, `inventory`, `ordering`, `dispatch`, `subscription`, `notification` y `audit`. Se comunica con buildshield-reception solo por eventos (RabbitMQ). Usa la librería `buildshield-commons` 0.1.1 (JWT, multiempresa, errores, outbox).
+Core logístico de BuildShield: **monolito modular**, la única unidad desplegable del sistema. Módulos: `iam`, `organization`, `inventory`, `ordering`, `dispatch`, `reception`, `subscription`, `notification` y `audit`. Los módulos se comunican solo por llamadas en proceso a la fachada del otro módulo. El kernel compartido (`pe.buildshield.core.shared`: JWT, multiempresa, errores, idempotencia, correlación) vive dentro del Core.
 
 ## Requisitos
 - Java 21
 - Docker (para `buildshield-infra` y las pruebas con Testcontainers)
-- `buildshield-commons` 0.1.1 instalada en el repositorio Maven local (`./mvnw install` en ese repositorio)
 
 ## Estructura
 ```
@@ -14,8 +13,11 @@ pe.buildshield.core.<modulo>.interfaces       REST, DTO, consumidores
 pe.buildshield.core.<modulo>.application      casos de uso
 pe.buildshield.core.<modulo>.domain           modelo (sin Spring ni JPA)
 pe.buildshield.core.<modulo>.infrastructure   persistencia y adaptadores
+pe.buildshield.core.shared                    kernel compartido (no depende de ningún módulo)
 ```
-`ModuleBoundariesTest` (ArchUnit) hace cumplir que un módulo solo use la fachada de otro y que el dominio no dependa de Spring ni JPA.
+`ModuleBoundariesTest` (ArchUnit) hace cumplir que un módulo solo use la fachada de otro, que el dominio no dependa de Spring ni JPA y que el kernel compartido no dependa de ningún módulo.
+
+Las configuraciones de `shared.config` se registran como autoconfiguración del propio Core (`META-INF/spring`): así sus condiciones (`@ConditionalOnMissingBean`) se evalúan después de las clases del Core y las pruebas por capas (`@WebMvcTest`) pueden importarlas.
 
 ## Módulo iam (US01–US05)
 
@@ -90,12 +92,12 @@ Integración con otros módulos:
 - **Líneas:** cada una guarda solicitado, despachado, cancelado y recibido por separado. **Pendiente = solicitado − despachado − cancelado.** Las cantidades son mayores que cero y no hay materiales repetidos.
 - **Estados (patrón State):** Registrado → EnRevision → ParcialmenteAtendido → Atendido → Cerrado, y Cancelado. Una transición no permitida responde 409 `INVALID_ORDER_TRANSITION`.
 - **Pendiente para otros módulos:**
-  - "recibido" vale 0 hasta que Recepción envíe sus eventos;
+  - "recibido" vale 0 hasta que exista el módulo reception (que lo actualizará en la misma transacción de la recepción);
   - los despachos (`registerDispatch`) y el cierre los usará el módulo dispatch.
 
 ## Ejecutar en local
 ```bash
-# 1. Levantar PostgreSQL y RabbitMQ (ver ../buildshield-infra)
+# 1. Levantar PostgreSQL (ver ../buildshield-infra)
 # 2. Generar un par de claves RSA para firmar los JWT (una sola vez, fuera del repositorio)
 openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out ~/.buildshield/jwt-private.pem
 openssl rsa -in ~/.buildshield/jwt-private.pem -pubout -out ~/.buildshield/jwt-public.pem
@@ -111,7 +113,6 @@ Salud: `GET http://localhost:8080/actuator/health`
 | `CORE_DB_USER`, `CORE_DB_PASSWORD` | local | Credenciales de `core_db` |
 | `CORE_DB_HOST`, `CORE_DB_PORT`, `CORE_DB_NAME` | local | Opcionales (localhost:5432/core_db) |
 | `DB_URL`, `DB_USER`, `DB_PASSWORD` | prod | Conexión a PostgreSQL |
-| `RABBITMQ_HOST`, `RABBITMQ_PORT`, `RABBITMQ_USER`, `RABBITMQ_PASSWORD` | local / prod | Broker |
 | `BUILDSHIELD_JWT_PUBLIC_KEY`, `BUILDSHIELD_JWT_PRIVATE_KEY` | local / prod | Claves RSA en PEM para firmar y validar los JWT |
 | `BUILDSHIELD_PASSWORD_RESET_URL` | local (opcional) / prod | Página de la web donde se define la nueva contraseña |
 
@@ -122,7 +123,7 @@ Salud: `GET http://localhost:8080/actuator/health`
 Ejecuta:
 - pruebas unitarias de dominio y aplicación, y de arquitectura (ArchUnit);
 - pruebas de la capa web con la seguridad real (`RoleAuthorizationTest`, `JwtAuthenticationFilterTest`);
-- pruebas de integración (`*IT`) con PostgreSQL y RabbitMQ de Testcontainers;
+- pruebas de integración (`*IT`) con PostgreSQL de Testcontainers, incluidas las del kernel compartido, que usan una aplicación de prueba aparte (`pe.buildshield.testapp`, perfil `it`);
 - los escenarios de aceptación de `src/test/resources/features` con Cucumber por HTTP real contra el Core en un puerto aleatorio (`CucumberIT`; reporte en `target/cucumber-report.html` y `target/cucumber.json`). Cada `.feature` lleva la etiqueta de su historia (`@US01` … `@US21`);
 - el control de cobertura de JaCoCo (≥ 80 % de líneas en `domain` y `application`; reporte en `target/site/jacoco/index.html`).
 
