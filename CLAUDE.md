@@ -5,7 +5,7 @@ SaaS multiempresa web de trazabilidad de materiales entre almacén y obra
 ## Arquitectura (decisiones tomadas, no cambiarlas)
 - UNA sola unidad desplegable: buildshield-core, MONOLITO MODULAR con los módulos iam,
   organization, inventory, ordering, dispatch, reception, subscription, notification, audit.
-  La web (buildshield-web) es el cliente; buildshield-infra solo tiene la infraestructura local.
+  La web (buildshield-web) es el cliente. El docker-compose.yml del Core levanta PostgreSQL local.
 - Kernel compartido DENTRO del Core (paquete pe.buildshield.core.shared): JWT, TenantContext,
   errores, idempotencia, correlación. No hay librerías compartidas aparte.
 - Los módulos se comunican SOLO por llamadas en proceso a la fachada pública del otro módulo.

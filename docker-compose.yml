@@ -1,0 +1,24 @@
+name: buildshield
+
+# PostgreSQL para correr el Core en local (perfil local). Las pruebas no lo usan: crean sus
+# propias bases con Testcontainers. Las credenciales se leen de .env (copiar desde .env.example).
+# El nombre del proyecto se mantiene "buildshield" para reutilizar el volumen de datos existente.
+services:
+  core-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: core_db
+      POSTGRES_USER: ${CORE_DB_USER:?definir CORE_DB_USER en .env}
+      POSTGRES_PASSWORD: ${CORE_DB_PASSWORD:?definir CORE_DB_PASSWORD en .env}
+    ports:
+      - "5432:5432"
+    volumes:
+      - core-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  core-db-data:

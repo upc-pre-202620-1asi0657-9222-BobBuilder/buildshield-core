@@ -4,7 +4,7 @@ Core logístico de BuildShield: **monolito modular**, la única unidad desplegab
 
 ## Requisitos
 - Java 21
-- Docker (para `buildshield-infra` y las pruebas con Testcontainers)
+- Docker (para la base local con `docker-compose.yml` y las pruebas con Testcontainers)
 
 ## Estructura
 ```
@@ -97,13 +97,14 @@ Integración con otros módulos:
 
 ## Ejecutar en local
 ```bash
-# 1. Levantar PostgreSQL (ver ../buildshield-infra)
+# 1. Levantar PostgreSQL local (una vez: cp .env.example .env y cambiar la contraseña)
+docker compose up -d
 # 2. Generar un par de claves RSA para firmar los JWT (una sola vez, fuera del repositorio)
 openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out ~/.buildshield/jwt-private.pem
 openssl rsa -in ~/.buildshield/jwt-private.pem -pubout -out ~/.buildshield/jwt-public.pem
 export BUILDSHIELD_JWT_PRIVATE_KEY="$(cat ~/.buildshield/jwt-private.pem)"
 export BUILDSHIELD_JWT_PUBLIC_KEY="$(cat ~/.buildshield/jwt-public.pem)"
-# 3. Exportar las variables de ../buildshield-infra/.env y arrancar con el perfil local
+# 3. Exportar las variables de .env y arrancar con el perfil local
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=local
 ```
 Salud: `GET http://localhost:8080/actuator/health`
