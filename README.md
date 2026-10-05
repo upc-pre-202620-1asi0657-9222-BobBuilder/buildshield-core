@@ -37,6 +37,62 @@ Detalles de seguridad:
 - Documentación OpenAPI: `http://localhost:8080/swagger-ui.html` (especificación en `/api/v1/api-docs`).
 - Correo: el puerto `EmailPort` tiene por ahora solo un adaptador **falso** (`LoggingEmailAdapter`), que escribe el enlace en el log y solo existe en los perfiles `local` y `test`. Con el perfil `prod` la aplicación no arranca hasta que exista un adaptador real.
 
+## Módulo organization (US14–US17)
+
+| Recurso | POST | GET (lista y por id) | PATCH |
+|---|---|---|---|
+| `/api/v1/worksites` (obras) | administrador | autenticado, según visibilidad | administrador |
+| `/api/v1/warehouses` (almacenes y centros de acopio) | administrador | autenticado, según visibilidad | administrador (`active=false` desactiva) |
+| `/api/v1/materials` (catálogo) | administrador | todos (los encargados, solo activos) | administrador (el SKU no cambia) |
+| `/api/v1/assignments` (asignaciones) | administrador | administrador: todas; encargado: las suyas | administrador (`active=false` termina) |
+
+Reglas:
+- **Obra:** la fecha de fin es opcional y nunca anterior a la de inicio (`INVALID_DATE_RANGE`).
+- **Almacén:** no se borra, se desactiva y conserva su historial. No se le asigna personal mientras está desactivado (`SITE_INACTIVE`, 409).
+- **Material:** SKU único por organización, sin distinguir mayúsculas (`SKU_ALREADY_EXISTS`, 409). Unidad del catálogo. Tolerancia de merma de 0 a 100 %, con hasta 2 decimales.
+- **Asignación:** el encargado de obra va a obras y el de almacén a almacenes (`ROLE_NOT_ALLOWED_FOR_SITE`, 400). Hay una sola asignación activa por usuario y lugar. Al terminar queda en el historial.
+- **Visibilidad:**
+  - el administrador ve todo;
+  - el encargado de obra ve sus obras asignadas y los almacenes activos (para pedir material);
+  - el encargado de almacén ve sus almacenes asignados y ninguna obra.
+- **Todo se filtra por organización.** Un recurso de otra organización, o uno que el usuario no puede ver, responde **404**. `OrganizationIsolationIntegrationTest` lo mide en los cuatro endpoints: 16 de 16 intentos denegados.
+
+Integración con otros módulos:
+- `OrganizationContextFacade` es la única puerta para los demás módulos (pedidos, despachos). Devuelve snapshots de obra, almacén y material, e indica si un usuario está asignado a un lugar.
+- organization no depende de iam. Pide los datos del usuario por el puerto `StaffDirectory`, que implementa iam.
+
+## Módulo inventory
+
+| Método y ruta | Quién | Descripción |
+|---|---|---|
+| `POST /api/v1/stock/entries` | administrador o encargado asignado al almacén | Entrada de material (carga de existencias) → 201 con el saldo |
+| `GET /api/v1/stock?warehouseId=` | autenticado | Administrador: todos los almacenes; encargado de almacén: los suyos; encargado de obra: los activos |
+
+**Fachada pública `StockService`**, para otros módulos (despachos):
+- `add(almacén, material, cantidad)`: suma stock.
+- `deduct(almacén, material, cantidad)`: descuenta con un UPDATE condicionado por `version` y por la cantidad disponible.
+  - Si otra operación cambió el ítem, reintenta hasta 3 veces.
+  - Si no alcanza, lanza `InsufficientStockException` (409) **sin efectos**.
+  - Se une a la transacción de quien llama.
+- Cada operación registra un movimiento en `inventory.stock_movements`.
+- La restricción `CHECK (available_qty >= 0)` es la última defensa de QAS02.
+- `StockConcurrencyIntegrationTest` lo mide: dos hilos descuentan sin stock para ambos, 50 repeticiones; gana uno solo y el saldo nunca queda negativo.
+
+## Módulo ordering (US18, US20, US21)
+
+| Método y ruta | Quién | Descripción |
+|---|---|---|
+| `POST /api/v1/orders` | encargado de obra | Pedido para una obra asignada a un almacén activo → 201, Registrado |
+| `GET /api/v1/orders`, `/{id}` | autenticado | Administrador: todos; encargado de obra: los de sus obras; encargado de almacén: los de sus almacenes |
+| `POST /api/v1/orders/{id}/approve` | administrador o encargado del almacén de origen | Registrado → EnRevision |
+| `POST /api/v1/orders/{id}/reject` | administrador o encargado del almacén de origen | Registrado → Cancelado; `reason` obligatorio |
+
+- **Líneas:** cada una guarda solicitado, despachado, cancelado y recibido por separado. **Pendiente = solicitado − despachado − cancelado.** Las cantidades son mayores que cero y no hay materiales repetidos.
+- **Estados (patrón State):** Registrado → EnRevision → ParcialmenteAtendido → Atendido → Cerrado, y Cancelado. Una transición no permitida responde 409 `INVALID_ORDER_TRANSITION`.
+- **Pendiente para otros módulos:**
+  - "recibido" vale 0 hasta que Recepción envíe sus eventos;
+  - los despachos (`registerDispatch`) y el cierre los usará el módulo dispatch.
+
 ## Ejecutar en local
 ```bash
 # 1. Levantar PostgreSQL y RabbitMQ (ver ../buildshield-infra)
