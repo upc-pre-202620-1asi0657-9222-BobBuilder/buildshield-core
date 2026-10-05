@@ -26,3 +26,11 @@ management:
 springdoc:
   api-docs:
     path: /api/v1/api-docs
+
+buildshield:
+  security:
+    issuer: buildshield-core
+  iam:
+    # Duración de la sesión renovable y del enlace de recuperación de contraseña.
+    refresh-token-ttl: P7D
+    password-reset-ttl: PT30M

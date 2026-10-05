@@ -11,6 +11,13 @@ spring:
     password: ${RABBITMQ_PASSWORD}
     virtual-host: ${RABBITMQ_VHOST:/}
 
+buildshield:
+  security:
+    jwt-public-key: ${BUILDSHIELD_JWT_PUBLIC_KEY}
+    jwt-private-key: ${BUILDSHIELD_JWT_PRIVATE_KEY}
+  iam:
+    password-reset-url: ${BUILDSHIELD_PASSWORD_RESET_URL}
+
 springdoc:
   api-docs:
     enabled: false
