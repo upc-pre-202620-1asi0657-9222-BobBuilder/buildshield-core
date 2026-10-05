@@ -22,6 +22,10 @@ import pe.buildshield.core.iam.application.PasswordResetService;
 import pe.buildshield.core.iam.application.SignUpService;
 import pe.buildshield.core.iam.application.UserManagementService;
 import pe.buildshield.core.iam.domain.model.Role;
+import pe.buildshield.core.inventory.StockService;
+import pe.buildshield.core.inventory.application.StockQueries;
+import pe.buildshield.core.ordering.application.OrderService;
+import pe.buildshield.core.ordering.domain.model.OrderStatus;
 import pe.buildshield.core.organization.application.AssignmentService;
 import pe.buildshield.core.organization.application.MaterialService;
 import pe.buildshield.core.organization.application.WarehouseService;
@@ -74,6 +78,9 @@ class RoleAuthorizationTest {
             Map.entry("patch-material", "{\"wasteTolerancePercent\":1.5}"),
             Map.entry("assignment", "{\"userId\":\"00000000-0000-0000-0000-0000000000bb\",\"siteType\":\"WORKSITE\",\"siteId\":\"00000000-0000-0000-0000-0000000000aa\"}"),
             Map.entry("end-assignment", "{\"active\":false}"),
+            Map.entry("order", "{\"worksiteId\":\"00000000-0000-0000-0000-0000000000aa\",\"warehouseId\":\"00000000-0000-0000-0000-0000000000aa\",\"lines\":[{\"materialId\":\"00000000-0000-0000-0000-0000000000aa\",\"quantity\":5}]}"),
+            Map.entry("reject", "{\"reason\":\"Sin transporte\"}"),
+            Map.entry("stock-entry", "{\"warehouseId\":\"00000000-0000-0000-0000-0000000000aa\",\"materialId\":\"00000000-0000-0000-0000-0000000000aa\",\"quantity\":10}"),
             Map.entry("create-user", "{\"fullName\":\"Rosa\",\"email\":\"rosa@andina.pe\",\"role\":\"WAREHOUSE_MANAGER\",\"password\":\"Almacen123\"}"));
 
     @Autowired
@@ -113,6 +120,12 @@ class RoleAuthorizationTest {
     @MockitoBean
     AssignmentService assignmentService;
 
+    @MockitoBean
+    OrderService orderService;
+
+    @MockitoBean
+    StockQueries stockQueries;
+
     @BeforeEach
     void stubServices() {
         when(signUpService.signUp(any())).thenReturn(new SignUpService.SignUpResult(UUID.randomUUID(), UUID.randomUUID()));
@@ -146,6 +159,16 @@ class RoleAuthorizationTest {
         when(assignmentService.update(any(), any())).thenReturn(assignment);
         when(assignmentService.get(any())).thenReturn(assignment);
         when(assignmentService.list()).thenReturn(List.of(assignment));
+        OrderService.OrderView order = new OrderService.OrderView(ANY_ID, ANY_ID, ANY_ID, ANY_ID,
+                OrderStatus.REGISTERED, null, null, Instant.now(), null, null, List.of());
+        when(orderService.place(any())).thenReturn(order);
+        when(orderService.approve(any())).thenReturn(order);
+        when(orderService.reject(any(), any())).thenReturn(order);
+        when(orderService.get(any())).thenReturn(order);
+        when(orderService.list()).thenReturn(List.of(order));
+        when(stockQueries.registerEntry(any(), any(), any(), any())).thenReturn(
+                new StockService.StockLevel(ANY_ID, ANY_ID, BigDecimal.TEN, BigDecimal.ZERO));
+        when(stockQueries.list(any())).thenReturn(List.of());
     }
 
     @ParameterizedTest(name = "{0} {1} como {2} -> {3}")
@@ -226,6 +249,34 @@ class RoleAuthorizationTest {
             "GET  , /api/v1/assignments, , SITE_MANAGER, 200",
             "GET  , /api/v1/assignments/00000000-0000-0000-0000-0000000000aa, , SITE_MANAGER, 200",
             "PATCH, /api/v1/assignments/00000000-0000-0000-0000-0000000000aa, end-assignment, SITE_MANAGER, 403",
+            "POST , /api/v1/orders, order, ANONYMOUS, 401",
+            "GET  , /api/v1/orders, , ANONYMOUS, 401",
+            "GET  , /api/v1/orders/00000000-0000-0000-0000-0000000000aa, , ANONYMOUS, 401",
+            "POST , /api/v1/orders/00000000-0000-0000-0000-0000000000aa/approve, , ANONYMOUS, 401",
+            "POST , /api/v1/orders/00000000-0000-0000-0000-0000000000aa/reject, reject, ANONYMOUS, 401",
+            "POST , /api/v1/stock/entries, stock-entry, ANONYMOUS, 401",
+            "GET  , /api/v1/stock, , ANONYMOUS, 401",
+            "POST , /api/v1/orders, order, ADMINISTRATOR, 403",
+            "GET  , /api/v1/orders, , ADMINISTRATOR, 200",
+            "GET  , /api/v1/orders/00000000-0000-0000-0000-0000000000aa, , ADMINISTRATOR, 200",
+            "POST , /api/v1/orders/00000000-0000-0000-0000-0000000000aa/approve, , ADMINISTRATOR, 200",
+            "POST , /api/v1/orders/00000000-0000-0000-0000-0000000000aa/reject, reject, ADMINISTRATOR, 200",
+            "POST , /api/v1/stock/entries, stock-entry, ADMINISTRATOR, 201",
+            "GET  , /api/v1/stock, , ADMINISTRATOR, 200",
+            "POST , /api/v1/orders, order, WAREHOUSE_MANAGER, 403",
+            "GET  , /api/v1/orders, , WAREHOUSE_MANAGER, 200",
+            "GET  , /api/v1/orders/00000000-0000-0000-0000-0000000000aa, , WAREHOUSE_MANAGER, 200",
+            "POST , /api/v1/orders/00000000-0000-0000-0000-0000000000aa/approve, , WAREHOUSE_MANAGER, 200",
+            "POST , /api/v1/orders/00000000-0000-0000-0000-0000000000aa/reject, reject, WAREHOUSE_MANAGER, 200",
+            "POST , /api/v1/stock/entries, stock-entry, WAREHOUSE_MANAGER, 201",
+            "GET  , /api/v1/stock, , WAREHOUSE_MANAGER, 200",
+            "POST , /api/v1/orders, order, SITE_MANAGER, 201",
+            "GET  , /api/v1/orders, , SITE_MANAGER, 200",
+            "GET  , /api/v1/orders/00000000-0000-0000-0000-0000000000aa, , SITE_MANAGER, 200",
+            "POST , /api/v1/orders/00000000-0000-0000-0000-0000000000aa/approve, , SITE_MANAGER, 403",
+            "POST , /api/v1/orders/00000000-0000-0000-0000-0000000000aa/reject, reject, SITE_MANAGER, 403",
+            "POST , /api/v1/stock/entries, stock-entry, SITE_MANAGER, 403",
+            "GET  , /api/v1/stock, , SITE_MANAGER, 200",
     })
     void endpoint_is_allowed_only_for_its_roles(String method, String path, String body, String who, int expectedStatus)
             throws Exception {
