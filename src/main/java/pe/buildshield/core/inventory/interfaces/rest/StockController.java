@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
-import pe.buildshield.commons.error.ErrorResponse;
+import pe.buildshield.core.shared.error.ErrorResponse;
 import pe.buildshield.core.inventory.StockService.StockLevel;
 import pe.buildshield.core.inventory.application.StockQueries;
 import pe.buildshield.core.inventory.application.StockQueries.StockView;

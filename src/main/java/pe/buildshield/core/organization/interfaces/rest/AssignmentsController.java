@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import pe.buildshield.commons.error.ErrorResponse;
+import pe.buildshield.core.shared.error.ErrorResponse;
 import pe.buildshield.core.organization.application.AssignmentService;
 import pe.buildshield.core.organization.application.AssignmentService.AssignmentView;
 import pe.buildshield.core.organization.domain.model.SiteType;

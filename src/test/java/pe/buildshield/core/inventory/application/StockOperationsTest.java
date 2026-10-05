@@ -2,7 +2,7 @@ package pe.buildshield.core.inventory.application;
 
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
-import pe.buildshield.commons.error.ValidationException;
+import pe.buildshield.core.shared.error.ValidationException;
 import pe.buildshield.core.inventory.ConcurrentStockModificationException;
 import pe.buildshield.core.inventory.InsufficientStockException;
 import pe.buildshield.core.inventory.StockService.StockLevel;

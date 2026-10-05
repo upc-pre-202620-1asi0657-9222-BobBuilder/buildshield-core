@@ -9,7 +9,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
-import pe.buildshield.commons.persistence.AuditableAbstractAggregateRoot;
+import pe.buildshield.core.shared.persistence.AuditableAbstractAggregateRoot;
 import pe.buildshield.core.ordering.domain.model.Order;
 import pe.buildshield.core.ordering.domain.model.OrderLine;
 import pe.buildshield.core.ordering.domain.model.OrderStatus;

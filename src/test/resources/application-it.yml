@@ -1,0 +1,14 @@
+# Perfil it: pruebas de integración del kernel compartido con la aplicación de prueba
+# (pe.buildshield.testapp). Usa las migraciones del Core más las tablas de prueba.
+spring:
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    locations: classpath:db/migration,classpath:db/test
+
+buildshield:
+  # Las pruebas invocan la purga a mano.
+  scheduling:
+    enabled: false

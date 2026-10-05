@@ -1,6 +1,6 @@
 package pe.buildshield.core.inventory;
 
-import pe.buildshield.commons.error.ConflictException;
+import pe.buildshield.core.shared.error.ConflictException;
 
 import java.util.UUID;
 

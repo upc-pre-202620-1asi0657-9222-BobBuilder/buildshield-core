@@ -26,7 +26,7 @@ public class DatabaseHooks {
         List<String> tables = jdbc.queryForList("""
                 SELECT table_schema || '.' || table_name FROM information_schema.tables
                 WHERE table_schema IN ('iam', 'organization', 'inventory', 'ordering', 'dispatch',
-                                       'subscription', 'notification', 'audit')
+                                       'reception', 'subscription', 'notification', 'audit')
                   AND table_type = 'BASE TABLE'
                 """, String.class);
         if (!tables.isEmpty()) {

@@ -10,7 +10,7 @@ import static io.cucumber.junit.platform.engine.Constants.GLUE_PROPERTY_NAME;
 import static io.cucumber.junit.platform.engine.Constants.PLUGIN_PROPERTY_NAME;
 import static io.cucumber.junit.platform.engine.Constants.PLUGIN_PUBLISH_QUIET_PROPERTY_NAME;
 
-/** Escenarios de aceptación (.feature en español) por HTTP contra el Core completo con PostgreSQL y RabbitMQ reales. */
+/** Escenarios de aceptación (.feature en español) por HTTP contra el Core completo con PostgreSQL real. */
 @Suite
 @IncludeEngines("cucumber")
 @SelectClasspathResource("features")

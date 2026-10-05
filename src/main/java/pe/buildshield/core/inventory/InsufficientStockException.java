@@ -1,7 +1,7 @@
 package pe.buildshield.core.inventory;
 
-import pe.buildshield.commons.error.ConflictException;
-import pe.buildshield.commons.error.ErrorDetail;
+import pe.buildshield.core.shared.error.ConflictException;
+import pe.buildshield.core.shared.error.ErrorDetail;
 
 import java.math.BigDecimal;
 import java.util.List;

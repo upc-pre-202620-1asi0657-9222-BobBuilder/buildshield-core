@@ -4,7 +4,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import pe.buildshield.commons.tenant.TenantContext;
+import pe.buildshield.core.shared.tenant.TenantContext;
 import pe.buildshield.core.iam.domain.model.EmailAddress;
 import pe.buildshield.core.iam.domain.model.PasswordPolicy;
 import pe.buildshield.core.iam.domain.model.Role;

@@ -2,10 +2,10 @@ package pe.buildshield.core.inventory.application;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
-import pe.buildshield.commons.error.ConflictException;
-import pe.buildshield.commons.error.ResourceNotFoundException;
-import pe.buildshield.commons.tenant.TenantContext;
-import pe.buildshield.commons.tenant.TenantInfo;
+import pe.buildshield.core.shared.error.ConflictException;
+import pe.buildshield.core.shared.error.ResourceNotFoundException;
+import pe.buildshield.core.shared.tenant.TenantContext;
+import pe.buildshield.core.shared.tenant.TenantInfo;
 import pe.buildshield.core.inventory.StockService.StockLevel;
 import pe.buildshield.core.inventory.domain.model.StockItem;
 import pe.buildshield.core.inventory.domain.model.StockRepository;

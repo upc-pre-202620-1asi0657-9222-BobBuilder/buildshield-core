@@ -5,7 +5,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
-import pe.buildshield.commons.persistence.AuditableAbstractAggregateRoot;
+import pe.buildshield.core.shared.persistence.AuditableAbstractAggregateRoot;
 import pe.buildshield.core.iam.domain.model.EmailAddress;
 import pe.buildshield.core.iam.domain.model.Role;
 import pe.buildshield.core.iam.domain.model.User;

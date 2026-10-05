@@ -3,7 +3,7 @@ package pe.buildshield.core.organization.application;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-import pe.buildshield.commons.error.ConflictException;
+import pe.buildshield.core.shared.error.ConflictException;
 import pe.buildshield.core.organization.domain.model.Organization;
 import pe.buildshield.core.organization.domain.model.OrganizationRepository;
 import pe.buildshield.core.organization.domain.model.Ruc;

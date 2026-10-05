@@ -10,7 +10,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Core completo contra PostgreSQL y RabbitMQ de Testcontainers. Cada clase declara además
+ * Core completo contra PostgreSQL de Testcontainers. Cada clase declara además
  * {@code @Testcontainers(disabledWithoutDocker = true)}.
  */
 @Target(ElementType.TYPE)

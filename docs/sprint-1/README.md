@@ -1,5 +1,7 @@
 # Sprint 1: resumen de buildshield-core
 
+> **Nota posterior al cierre:** después de este sprint la arquitectura pasó a ser un solo monolito modular. buildshield-commons se integró al Core como `pe.buildshield.core.shared`, Recepción pasó a ser el módulo `reception` del Core y se retiró RabbitMQ. Los números de este documento corresponden a la corrida del cierre, antes de ese cambio.
+
 Datos tomados de la corrida local de `./mvnw clean verify` del 4 de octubre de 2026 (rama `feature/sprint-1-closure`): **BUILD SUCCESS**.
 
 ## 1. Qué se hizo

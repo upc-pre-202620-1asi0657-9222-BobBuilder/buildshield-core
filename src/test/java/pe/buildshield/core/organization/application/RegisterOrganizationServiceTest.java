@@ -1,8 +1,8 @@
 package pe.buildshield.core.organization.application;
 
 import org.junit.jupiter.api.Test;
-import pe.buildshield.commons.error.ConflictException;
-import pe.buildshield.commons.error.ValidationException;
+import pe.buildshield.core.shared.error.ConflictException;
+import pe.buildshield.core.shared.error.ValidationException;
 import pe.buildshield.core.organization.domain.model.Organization;
 import pe.buildshield.core.organization.domain.model.OrganizationRepository;
 import pe.buildshield.core.organization.domain.model.Ruc;

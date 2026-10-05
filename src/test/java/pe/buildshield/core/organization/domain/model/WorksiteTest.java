@@ -3,7 +3,7 @@ package pe.buildshield.core.organization.domain.model;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
-import pe.buildshield.commons.error.ValidationException;
+import pe.buildshield.core.shared.error.ValidationException;
 
 import java.time.LocalDate;
 import java.util.UUID;

@@ -9,14 +9,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.ActiveProfiles;
 import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.containers.RabbitMQContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Levanta el Core completo contra PostgreSQL 16 y RabbitMQ reales.
+ * Levanta el Core completo contra PostgreSQL 16 real.
  * Se omite automáticamente si no hay Docker disponible.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -27,10 +26,6 @@ class HealthEndpointIT {
     @Container
     @ServiceConnection
     static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine");
-
-    @Container
-    @ServiceConnection
-    static RabbitMQContainer rabbit = new RabbitMQContainer("rabbitmq:4-management-alpine");
 
     @Autowired
     TestRestTemplate rest;

@@ -1,7 +1,7 @@
 package pe.buildshield.core.organization.domain.model;
 
 import org.junit.jupiter.api.Test;
-import pe.buildshield.commons.error.ValidationException;
+import pe.buildshield.core.shared.error.ValidationException;
 
 import java.util.UUID;
 

@@ -2,7 +2,7 @@ package pe.buildshield.core.ordering.infrastructure.persistence;
 
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Repository;
-import pe.buildshield.commons.error.ResourceNotFoundException;
+import pe.buildshield.core.shared.error.ResourceNotFoundException;
 import pe.buildshield.core.ordering.domain.model.Order;
 import pe.buildshield.core.ordering.domain.model.OrderRepository;
 

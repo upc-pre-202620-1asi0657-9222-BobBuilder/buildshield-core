@@ -5,11 +5,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-import pe.buildshield.commons.autoconfigure.BuildshieldProperties;
-import pe.buildshield.commons.security.JwtTokenIssuer;
-import pe.buildshield.commons.security.PemKeys;
-import pe.buildshield.commons.security.RevokedTokenStore;
-import pe.buildshield.commons.tenant.TenantInfo;
+import pe.buildshield.core.shared.config.BuildshieldProperties;
+import pe.buildshield.core.shared.security.JwtTokenIssuer;
+import pe.buildshield.core.shared.security.PemKeys;
+import pe.buildshield.core.shared.security.RevokedTokenStore;
+import pe.buildshield.core.shared.tenant.TenantInfo;
 import pe.buildshield.core.iam.application.AuthenticationService;
 import pe.buildshield.core.iam.application.PasswordResetService;
 import pe.buildshield.core.iam.application.SignUpService;
@@ -29,7 +29,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * El filtro JWT de commons dentro de la cadena de seguridad del Core, sobre un endpoint que exige
+ * El filtro JWT del kernel compartido dentro de la cadena de seguridad del Core, sobre un endpoint que exige
  * autenticación (cierre de sesión).
  */
 @WebMvcTest(AuthController.class)

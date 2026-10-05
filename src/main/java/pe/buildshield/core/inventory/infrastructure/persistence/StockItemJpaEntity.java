@@ -3,7 +3,7 @@ package pe.buildshield.core.inventory.infrastructure.persistence;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
-import pe.buildshield.commons.persistence.AuditableAbstractAggregateRoot;
+import pe.buildshield.core.shared.persistence.AuditableAbstractAggregateRoot;
 import pe.buildshield.core.inventory.domain.model.StockItem;
 
 import java.math.BigDecimal;

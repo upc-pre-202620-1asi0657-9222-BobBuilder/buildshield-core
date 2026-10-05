@@ -17,15 +17,15 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 import org.springframework.security.web.util.matcher.OrRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
-import pe.buildshield.commons.error.ErrorResponse;
-import pe.buildshield.commons.error.ErrorResponseWriter;
-import pe.buildshield.commons.security.JwtAuthenticationFilter;
+import pe.buildshield.core.shared.error.ErrorResponse;
+import pe.buildshield.core.shared.error.ErrorResponseWriter;
+import pe.buildshield.core.shared.security.JwtAuthenticationFilter;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Seguridad del Core: API sin sesión de servidor, autenticada con el JWT de commons.
+ * Seguridad del Core: API sin sesión de servidor, autenticada con el JWT del kernel compartido.
  *
  * <p>Dos cadenas:
  * <ol>
