@@ -1,5 +1,5 @@
 # Perfil test: Testcontainers (@ServiceConnection) aporta URL y credenciales
-# de PostgreSQL y RabbitMQ.
+# de PostgreSQL.
 spring:
   jpa:
     show-sql: false

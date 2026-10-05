@@ -5,7 +5,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-import pe.buildshield.commons.security.RevokedTokenStore;
+import pe.buildshield.core.shared.security.RevokedTokenStore;
 import pe.buildshield.core.iam.domain.model.TokenRepositories.AccessTokenBlocklist;
 
 import java.sql.Timestamp;
@@ -14,7 +14,7 @@ import java.time.Instant;
 
 /**
  * Lista de revocación de tokens de acceso (tabla iam.revoked_access_tokens). La consulta el
- * {@code JwtAuthenticationFilter} de commons en cada petición, por eso usa JDBC directo y una sola
+ * {@code JwtAuthenticationFilter} del kernel compartido en cada petición, por eso usa JDBC directo y una sola
  * consulta por clave primaria.
  */
 @Component

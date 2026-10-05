@@ -6,9 +6,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import pe.buildshield.commons.error.ConflictException;
-import pe.buildshield.commons.tenant.TenantContext;
-import pe.buildshield.commons.tenant.TenantInfo;
+import pe.buildshield.core.shared.error.ConflictException;
+import pe.buildshield.core.shared.tenant.TenantContext;
+import pe.buildshield.core.shared.tenant.TenantInfo;
 import pe.buildshield.core.iam.application.SignUpService;
 import pe.buildshield.core.iam.domain.model.EmailAddress;
 import pe.buildshield.core.iam.domain.model.Role;
@@ -22,7 +22,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-/** Registro y usuarios contra PostgreSQL real, con el filtro multiempresa de commons. */
+/** Registro y usuarios contra PostgreSQL real, con el filtro multiempresa del kernel compartido. */
 @CoreIntegrationTest
 @Testcontainers(disabledWithoutDocker = true)
 class IamPersistenceIT {

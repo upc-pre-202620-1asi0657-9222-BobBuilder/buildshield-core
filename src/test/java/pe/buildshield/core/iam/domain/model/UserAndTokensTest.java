@@ -1,7 +1,7 @@
 package pe.buildshield.core.iam.domain.model;
 
 import org.junit.jupiter.api.Test;
-import pe.buildshield.commons.error.ValidationException;
+import pe.buildshield.core.shared.error.ValidationException;
 
 import java.time.Duration;
 import java.time.Instant;

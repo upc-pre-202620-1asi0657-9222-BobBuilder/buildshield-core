@@ -3,7 +3,7 @@ package pe.buildshield.core.iam.application;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import pe.buildshield.commons.error.ValidationException;
+import pe.buildshield.core.shared.error.ValidationException;
 import pe.buildshield.core.iam.domain.model.EmailAddress;
 import pe.buildshield.core.iam.domain.model.PasswordResetToken;
 import pe.buildshield.core.iam.domain.model.Role;

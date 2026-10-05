@@ -1,8 +1,8 @@
 package pe.buildshield.core.organization.domain.model;
 
-import pe.buildshield.commons.error.ConflictException;
-import pe.buildshield.commons.error.ErrorDetail;
-import pe.buildshield.commons.error.ValidationException;
+import pe.buildshield.core.shared.error.ConflictException;
+import pe.buildshield.core.shared.error.ErrorDetail;
+import pe.buildshield.core.shared.error.ValidationException;
 
 import java.time.Instant;
 import java.util.List;

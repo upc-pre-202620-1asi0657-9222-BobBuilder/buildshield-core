@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @AnalyzeClasses(packages = ModuleBoundariesTest.CORE_PACKAGE, importOptions = ImportOption.DoNotIncludeTests.class)
@@ -21,7 +22,7 @@ class ModuleBoundariesTest {
 
     static final List<String> MODULES = List.of(
             "iam", "organization", "inventory", "ordering",
-            "dispatch", "subscription", "notification", "audit");
+            "dispatch", "reception", "subscription", "notification", "audit");
 
     @ArchTest
     static final ArchRule modules_only_expose_their_facade =
@@ -30,6 +31,13 @@ class ModuleBoundariesTest {
     @ArchTest
     static final ArchRule domain_does_not_depend_on_spring_or_jpa =
             ArchitectureRules.domainIsFrameworkFree(CORE_PACKAGE);
+
+    /** El kernel compartido lo usan todos los módulos, así que no puede depender de ninguno. */
+    @ArchTest
+    static final ArchRule shared_kernel_does_not_depend_on_modules = noClasses()
+            .that().resideInAPackage(CORE_PACKAGE + ".shared..")
+            .should().dependOnClassesThat().resideInAnyPackage(MODULES.stream()
+                    .map(module -> CORE_PACKAGE + "." + module + "..").toArray(String[]::new));
 
     /**
      * Comprueba que las reglas detectan violaciones reales usando clases de ejemplo,

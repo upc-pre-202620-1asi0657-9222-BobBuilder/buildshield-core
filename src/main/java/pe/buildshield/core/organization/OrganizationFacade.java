@@ -21,8 +21,8 @@ public class OrganizationFacade {
     /**
      * Registra la organización dentro de la transacción en curso.
      *
-     * @throws pe.buildshield.commons.error.ValidationException RUC o razón social inválidos
-     * @throws pe.buildshield.commons.error.ConflictException   RUC ya registrado ({@code RUC_ALREADY_REGISTERED})
+     * @throws pe.buildshield.core.shared.error.ValidationException RUC o razón social inválidos
+     * @throws pe.buildshield.core.shared.error.ConflictException   RUC ya registrado ({@code RUC_ALREADY_REGISTERED})
      */
     public void registerOrganization(UUID organizationId, String ruc, String legalName) {
         registerOrganization.register(organizationId, ruc, legalName);

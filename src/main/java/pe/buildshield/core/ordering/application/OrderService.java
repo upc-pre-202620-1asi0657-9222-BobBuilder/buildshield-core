@@ -2,10 +2,10 @@ package pe.buildshield.core.ordering.application;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import pe.buildshield.commons.error.ConflictException;
-import pe.buildshield.commons.error.ResourceNotFoundException;
-import pe.buildshield.commons.tenant.TenantContext;
-import pe.buildshield.commons.tenant.TenantInfo;
+import pe.buildshield.core.shared.error.ConflictException;
+import pe.buildshield.core.shared.error.ResourceNotFoundException;
+import pe.buildshield.core.shared.tenant.TenantContext;
+import pe.buildshield.core.shared.tenant.TenantInfo;
 import pe.buildshield.core.ordering.domain.model.Order;
 import pe.buildshield.core.ordering.domain.model.OrderLine;
 import pe.buildshield.core.ordering.domain.model.OrderRepository;

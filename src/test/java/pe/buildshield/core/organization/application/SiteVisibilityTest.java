@@ -2,8 +2,8 @@ package pe.buildshield.core.organization.application;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
-import pe.buildshield.commons.tenant.TenantContext;
-import pe.buildshield.commons.tenant.TenantInfo;
+import pe.buildshield.core.shared.tenant.TenantContext;
+import pe.buildshield.core.shared.tenant.TenantInfo;
 import pe.buildshield.core.organization.domain.model.Location;
 import pe.buildshield.core.organization.domain.model.Material;
 import pe.buildshield.core.organization.domain.model.MaterialRepository;

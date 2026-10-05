@@ -1,4 +1,4 @@
 /**
- * Módulo dispatch. Capa de interfaces: controladores REST, DTO y consumidores de mensajes.
+ * Módulo dispatch. Capa de interfaces: controladores REST y DTO.
  */
 package pe.buildshield.core.dispatch.interfaces;

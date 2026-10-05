@@ -5,11 +5,6 @@ spring:
     url: jdbc:postgresql://${CORE_DB_HOST:localhost}:${CORE_DB_PORT:5432}/${CORE_DB_NAME:core_db}
     username: ${CORE_DB_USER}
     password: ${CORE_DB_PASSWORD}
-  rabbitmq:
-    host: ${RABBITMQ_HOST:localhost}
-    port: ${RABBITMQ_PORT:5672}
-    username: ${RABBITMQ_USER}
-    password: ${RABBITMQ_PASSWORD}
 
 buildshield:
   security:

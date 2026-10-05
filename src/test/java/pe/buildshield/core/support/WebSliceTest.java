@@ -4,8 +4,8 @@ import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
-import pe.buildshield.commons.autoconfigure.BuildshieldClockAutoConfiguration;
-import pe.buildshield.commons.autoconfigure.BuildshieldWebAutoConfiguration;
+import pe.buildshield.core.shared.config.BuildshieldClockAutoConfiguration;
+import pe.buildshield.core.shared.config.BuildshieldWebAutoConfiguration;
 import pe.buildshield.core.config.SecurityConfig;
 
 import java.lang.annotation.ElementType;
@@ -14,7 +14,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Para usar junto a {@code @WebMvcTest}: agrega la seguridad real del Core (filtro JWT de commons,
+ * Para usar junto a {@code @WebMvcTest}: agrega la seguridad real del Core (filtro JWT del kernel compartido,
  * claves de prueba, manejo de errores) sin base de datos. La idempotencia HTTP se apaga porque
  * necesita JDBC.
  */

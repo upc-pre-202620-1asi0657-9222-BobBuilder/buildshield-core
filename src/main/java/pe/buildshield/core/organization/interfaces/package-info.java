@@ -1,4 +1,4 @@
 /**
- * Módulo organization. Capa de interfaces: controladores REST, DTO y consumidores de mensajes.
+ * Módulo organization. Capa de interfaces: controladores REST y DTO.
  */
 package pe.buildshield.core.organization.interfaces;

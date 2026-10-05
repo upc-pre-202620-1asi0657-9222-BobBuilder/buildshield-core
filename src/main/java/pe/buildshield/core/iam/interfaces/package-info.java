@@ -1,4 +1,4 @@
 /**
- * Módulo iam. Capa de interfaces: controladores REST, DTO y consumidores de mensajes.
+ * Módulo iam. Capa de interfaces: controladores REST y DTO.
  */
 package pe.buildshield.core.iam.interfaces;

@@ -4,7 +4,7 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
-import pe.buildshield.commons.persistence.OrganizationScopedEntity;
+import pe.buildshield.core.shared.persistence.OrganizationScopedEntity;
 import pe.buildshield.core.ordering.domain.model.OrderLine;
 
 import java.math.BigDecimal;

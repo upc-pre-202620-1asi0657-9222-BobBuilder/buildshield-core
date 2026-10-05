@@ -1,7 +1,7 @@
 package pe.buildshield.core.iam.application;
 
 import org.springframework.dao.DataIntegrityViolationException;
-import pe.buildshield.commons.error.ConflictException;
+import pe.buildshield.core.shared.error.ConflictException;
 
 /**
  * Traduce las violaciones de restricciones UNIQUE (dos altas simultáneas que pasaron la validación

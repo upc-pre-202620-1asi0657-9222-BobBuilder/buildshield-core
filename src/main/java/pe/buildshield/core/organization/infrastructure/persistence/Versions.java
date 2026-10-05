@@ -2,8 +2,8 @@ package pe.buildshield.core.organization.infrastructure.persistence;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
-import pe.buildshield.commons.error.ResourceNotFoundException;
-import pe.buildshield.commons.persistence.AuditableAbstractAggregateRoot;
+import pe.buildshield.core.shared.error.ResourceNotFoundException;
+import pe.buildshield.core.shared.persistence.AuditableAbstractAggregateRoot;
 
 import java.util.Objects;
 import java.util.UUID;

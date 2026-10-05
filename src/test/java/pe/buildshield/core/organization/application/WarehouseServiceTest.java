@@ -1,7 +1,7 @@
 package pe.buildshield.core.organization.application;
 
 import org.junit.jupiter.api.Test;
-import pe.buildshield.commons.error.ResourceNotFoundException;
+import pe.buildshield.core.shared.error.ResourceNotFoundException;
 import pe.buildshield.core.organization.domain.model.Warehouse;
 import pe.buildshield.core.organization.domain.model.WarehouseRepository;
 import pe.buildshield.core.organization.domain.model.WarehouseType;

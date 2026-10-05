@@ -2,8 +2,8 @@ package pe.buildshield.core.iam.infrastructure.persistence;
 
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Repository;
-import pe.buildshield.commons.error.ResourceNotFoundException;
-import pe.buildshield.commons.tenant.TenantContext;
+import pe.buildshield.core.shared.error.ResourceNotFoundException;
+import pe.buildshield.core.shared.tenant.TenantContext;
 import pe.buildshield.core.iam.domain.model.EmailAddress;
 import pe.buildshield.core.iam.domain.model.User;
 import pe.buildshield.core.iam.domain.model.UserRepository;

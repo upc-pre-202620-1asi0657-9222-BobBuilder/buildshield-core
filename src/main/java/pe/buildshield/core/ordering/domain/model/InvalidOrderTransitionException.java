@@ -1,6 +1,6 @@
 package pe.buildshield.core.ordering.domain.model;
 
-import pe.buildshield.commons.error.ConflictException;
+import pe.buildshield.core.shared.error.ConflictException;
 
 /** La operación no está permitida en el estado actual del pedido. Se responde 409. */
 public class InvalidOrderTransitionException extends ConflictException {
