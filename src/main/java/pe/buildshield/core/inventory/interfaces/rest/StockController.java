@@ -1,6 +1,8 @@
 package pe.buildshield.core.inventory.interfaces.rest;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -47,7 +49,9 @@ class StockController {
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "Registrar una entrada de material (carga de existencias)",
             description = "El administrador o un encargado asignado al almacén. Suma a lo disponible.")
-    @ApiResponse(responseCode = "201", description = "Entrada registrada; devuelve el saldo")
+    @ApiResponse(responseCode = "201", description = "Entrada registrada; devuelve el saldo",
+            content = @Content(schema = @Schema(implementation = StockLevelResource.class),
+                    examples = @ExampleObject(value = StockApiExamples.STOCK_LEVEL)))
     @ApiResponse(responseCode = "400", description = "Cantidad inválida",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @ApiResponse(responseCode = "404", description = "Almacén o material inexistente, de otra organización o no asignado",
@@ -63,7 +67,11 @@ class StockController {
     @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Consultar el stock",
             description = "Administrador: todos los almacenes; encargado de almacén: los suyos; encargado de obra: los activos.")
-    List<StockView> list(@Parameter(description = "Filtra por almacén") @RequestParam(required = false) UUID warehouseId) {
+    @ApiResponse(responseCode = "200", description = "Saldos por almacén y material",
+            content = @Content(array = @ArraySchema(schema = @Schema(implementation = StockView.class)),
+                    examples = @ExampleObject(value = StockApiExamples.STOCK)))
+    List<StockView> list(
+            @Parameter(description = "Id del almacén; si se omite, todos los almacenes visibles", example = StockApiExamples.WAREHOUSE_ID) @RequestParam(required = false) UUID warehouseId) {
         return stock.list(warehouseId);
     }
 

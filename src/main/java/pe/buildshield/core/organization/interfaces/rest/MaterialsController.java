@@ -1,6 +1,9 @@
 package pe.buildshield.core.organization.interfaces.rest;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -43,8 +46,11 @@ class MaterialsController {
 
     @PostMapping
     @PreAuthorize("hasRole('ADMINISTRATOR')")
-    @Operation(summary = "Agregar un material al catálogo")
-    @ApiResponse(responseCode = "201", description = "Material registrado")
+    @Operation(summary = "Agregar un material al catálogo",
+            description = "SKU único en la organización, nombre, unidad de medida y tolerancia de merma.")
+    @ApiResponse(responseCode = "201", description = "Material registrado",
+            content = @Content(schema = @Schema(implementation = MaterialResource.class),
+                    examples = @ExampleObject(value = OrganizationApiExamples.MATERIAL)))
     @ApiResponse(responseCode = "400", description = "SKU, unidad o tolerancia inválidos (la tolerancia va de 0 a 100 %)",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @ApiResponse(responseCode = "409", description = "Ya existe un material con ese SKU en la organización",
@@ -58,27 +64,34 @@ class MaterialsController {
     @GetMapping
     @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Consultar el catálogo", description = "Todos los roles; los encargados ven solo los materiales activos.")
+    @ApiResponse(responseCode = "200", description = "Materiales del catálogo",
+            content = @Content(array = @ArraySchema(schema = @Schema(implementation = MaterialResource.class)),
+                    examples = @ExampleObject(value = OrganizationApiExamples.MATERIALS)))
     List<MaterialResource> list() {
         return materials.list().stream().map(MaterialResource::of).toList();
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("isAuthenticated()")
-    @Operation(summary = "Consultar un material")
-    @ApiResponse(responseCode = "200", description = "Material")
+    @Operation(summary = "Consultar un material", description = "Datos de un material del catálogo de la organización.")
+    @ApiResponse(responseCode = "200", description = "Material",
+            content = @Content(schema = @Schema(implementation = MaterialResource.class),
+                    examples = @ExampleObject(value = OrganizationApiExamples.MATERIAL)))
     @ApiResponse(responseCode = "404", description = "No existe o es de otra organización",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
-    MaterialResource get(@PathVariable UUID id) {
+    MaterialResource get(@Parameter(description = "Id del material", example = OrganizationApiExamples.MATERIAL_ID) @PathVariable UUID id) {
         return MaterialResource.of(materials.get(id));
     }
 
     @PatchMapping("/{id}")
     @PreAuthorize("hasRole('ADMINISTRATOR')")
     @Operation(summary = "Modificar un material", description = "Solo cambian los campos enviados; el SKU no se modifica.")
-    @ApiResponse(responseCode = "200", description = "Material modificado")
+    @ApiResponse(responseCode = "200", description = "Material modificado",
+            content = @Content(schema = @Schema(implementation = MaterialResource.class),
+                    examples = @ExampleObject(value = OrganizationApiExamples.MATERIAL)))
     @ApiResponse(responseCode = "404", description = "No existe o es de otra organización",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
-    MaterialResource update(@PathVariable UUID id, @Valid @RequestBody UpdateMaterialRequest request) {
+    MaterialResource update(@Parameter(description = "Id del material", example = OrganizationApiExamples.MATERIAL_ID) @PathVariable UUID id, @Valid @RequestBody UpdateMaterialRequest request) {
         return MaterialResource.of(materials.update(id, new MaterialService.UpdateMaterial(
                 request.name(), request.unit(), request.wasteTolerancePercent(), request.active())));
     }

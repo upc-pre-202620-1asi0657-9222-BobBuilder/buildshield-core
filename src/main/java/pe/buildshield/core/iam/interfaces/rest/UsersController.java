@@ -1,6 +1,8 @@
 package pe.buildshield.core.iam.interfaces.rest;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -40,7 +42,9 @@ class UsersController {
     @PreAuthorize("hasRole('ADMINISTRATOR')")
     @Operation(summary = "Crear un usuario de la organización",
             description = "El usuario queda en la organización del administrador que lo crea.")
-    @ApiResponse(responseCode = "201", description = "Usuario creado")
+    @ApiResponse(responseCode = "201", description = "Usuario creado",
+            content = @Content(schema = @Schema(implementation = UserResource.class),
+                    examples = @ExampleObject(value = IamApiExamples.USER)))
     @ApiResponse(responseCode = "400", description = "Datos inválidos (correo, rol o contraseña)",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @ApiResponse(responseCode = "403", description = "Solo un administrador puede crear usuarios",
@@ -55,8 +59,11 @@ class UsersController {
 
     @GetMapping
     @PreAuthorize("hasRole('ADMINISTRATOR')")
-    @Operation(summary = "Listar los usuarios de la organización")
-    @ApiResponse(responseCode = "200", description = "Usuarios de la organización del administrador")
+    @Operation(summary = "Listar los usuarios de la organización",
+            description = "Todos los usuarios de la organización del administrador, activos e inactivos.")
+    @ApiResponse(responseCode = "200", description = "Usuarios de la organización del administrador",
+            content = @Content(array = @ArraySchema(schema = @Schema(implementation = UserResource.class)),
+                    examples = @ExampleObject(value = IamApiExamples.USERS)))
     @ApiResponse(responseCode = "403", description = "Solo un administrador puede ver los usuarios",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     List<UserResource> list() {

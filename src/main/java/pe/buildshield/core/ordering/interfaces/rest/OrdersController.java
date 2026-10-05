@@ -1,6 +1,9 @@
 package pe.buildshield.core.ordering.interfaces.rest;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -47,7 +50,9 @@ class OrdersController {
     @PreAuthorize("hasRole('SITE_MANAGER')")
     @Operation(summary = "Crear un pedido de materiales",
             description = "El encargado de obra pide para una obra asignada a un almacén activo. Queda Registrado.")
-    @ApiResponse(responseCode = "201", description = "Pedido registrado")
+    @ApiResponse(responseCode = "201", description = "Pedido registrado",
+            content = @Content(schema = @Schema(implementation = OrderResource.class),
+                    examples = @ExampleObject(value = OrderApiExamples.ORDER_REGISTERED)))
     @ApiResponse(responseCode = "400", description = "Sin líneas, cantidades no positivas o material repetido",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @ApiResponse(responseCode = "403", description = "Solo el encargado de obra crea pedidos",
@@ -67,6 +72,9 @@ class OrdersController {
     @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Listar pedidos",
             description = "Administrador: todos; encargado de obra: los de sus obras; encargado de almacén: los de sus almacenes.")
+    @ApiResponse(responseCode = "200", description = "Pedidos visibles para el usuario",
+            content = @Content(array = @ArraySchema(schema = @Schema(implementation = OrderResource.class)),
+                    examples = @ExampleObject(value = OrderApiExamples.ORDERS)))
     List<OrderResource> list() {
         return orders.list().stream().map(OrderResource::of).toList();
     }
@@ -75,36 +83,42 @@ class OrdersController {
     @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Consultar el estado de un pedido",
             description = "Estado y, por material, lo solicitado, despachado, recibido y pendiente.")
-    @ApiResponse(responseCode = "200", description = "Pedido")
+    @ApiResponse(responseCode = "200", description = "Pedido",
+            content = @Content(schema = @Schema(implementation = OrderResource.class),
+                    examples = @ExampleObject(value = OrderApiExamples.ORDER_REGISTERED)))
     @ApiResponse(responseCode = "404", description = "No existe, es de otra organización o no corresponde al usuario",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
-    OrderResource get(@PathVariable UUID id) {
+    OrderResource get(@Parameter(description = "Id del pedido", example = OrderApiExamples.ORDER_ID) @PathVariable UUID id) {
         return OrderResource.of(orders.get(id));
     }
 
     @PostMapping("/{id}/approve")
     @PreAuthorize("hasAnyRole('ADMINISTRATOR', 'WAREHOUSE_MANAGER')")
     @Operation(summary = "Aprobar un pedido", description = "Registrado → EnRevision. Lo hace el encargado del almacén de origen o el administrador.")
-    @ApiResponse(responseCode = "200", description = "Pedido aprobado")
+    @ApiResponse(responseCode = "200", description = "Pedido aprobado",
+            content = @Content(schema = @Schema(implementation = OrderResource.class),
+                    examples = @ExampleObject(value = OrderApiExamples.ORDER_APPROVED)))
     @ApiResponse(responseCode = "404", description = "No existe o el usuario no es del almacén de origen",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @ApiResponse(responseCode = "409", description = "El estado actual no permite aprobar",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
-    OrderResource approve(@PathVariable UUID id) {
+    OrderResource approve(@Parameter(description = "Id del pedido", example = OrderApiExamples.ORDER_ID) @PathVariable UUID id) {
         return OrderResource.of(orders.approve(id));
     }
 
     @PostMapping("/{id}/reject")
     @PreAuthorize("hasAnyRole('ADMINISTRATOR', 'WAREHOUSE_MANAGER')")
     @Operation(summary = "Rechazar un pedido", description = "Registrado → Cancelado. El motivo es obligatorio.")
-    @ApiResponse(responseCode = "200", description = "Pedido rechazado")
+    @ApiResponse(responseCode = "200", description = "Pedido rechazado",
+            content = @Content(schema = @Schema(implementation = OrderResource.class),
+                    examples = @ExampleObject(value = OrderApiExamples.ORDER_REJECTED)))
     @ApiResponse(responseCode = "400", description = "Falta el motivo",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @ApiResponse(responseCode = "404", description = "No existe o el usuario no es del almacén de origen",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @ApiResponse(responseCode = "409", description = "El estado actual no permite rechazar",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
-    OrderResource reject(@PathVariable UUID id, @RequestBody(required = false) RejectOrderRequest request) {
+    OrderResource reject(@Parameter(description = "Id del pedido", example = OrderApiExamples.ORDER_ID) @PathVariable UUID id, @RequestBody(required = false) RejectOrderRequest request) {
         return OrderResource.of(orders.reject(id, request == null ? null : request.reason()));
     }
 
