@@ -5,7 +5,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.support.TransactionTemplate;
-import org.testcontainers.junit.jupiter.Testcontainers;
 import pe.buildshield.testapp.Note;
 import pe.buildshield.testapp.NoteRepository;
 import pe.buildshield.testapp.PostgresIntegrationTest;
@@ -20,7 +19,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @PostgresIntegrationTest
-@Testcontainers(disabledWithoutDocker = true)
 class OrganizationScopedEntityIT {
 
     private static final TenantInfo ALPHA = new TenantInfo(UUID.randomUUID(), UUID.randomUUID(), "SUPERVISOR");

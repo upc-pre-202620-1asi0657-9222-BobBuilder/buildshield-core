@@ -19,8 +19,9 @@ import static org.mockito.Mockito.when;
 
 class RegisterOrganizationServiceTest {
 
+    private final pe.buildshield.core.audit.AuditTrail audit = pe.buildshield.core.support.AuditTestSupport.noop();
     private final OrganizationRepository organizations = mock(OrganizationRepository.class);
-    private final RegisterOrganizationService service = new RegisterOrganizationService(organizations);
+    private final RegisterOrganizationService service = new RegisterOrganizationService(organizations, audit);
 
     @Test
     void registers_a_new_organization() {

@@ -1,5 +1,6 @@
 package pe.buildshield.core.inventory.application;
 
+import pe.buildshield.core.audit.AuditTrail;
 import org.springframework.stereotype.Service;
 import pe.buildshield.core.inventory.ConcurrentStockModificationException;
 import pe.buildshield.core.inventory.InsufficientStockException;
@@ -27,12 +28,14 @@ public class StockOperations {
 
     public static final int MAX_RETRIES = 3;
 
+    private final AuditTrail audit;
     private final StockRepository stock;
     private final Clock clock;
 
-    public StockOperations(StockRepository stock, Clock clock) {
+    public StockOperations(StockRepository stock, Clock clock, AuditTrail audit) {
         this.stock = stock;
         this.clock = clock;
+        this.audit = audit;
     }
 
     public StockLevel deduct(UUID locationId, UUID materialId, BigDecimal requested, String reference) {
@@ -48,6 +51,9 @@ public class StockOperations {
                 BigDecimal balance = item.availableAfterDeducting(quantity);
                 stock.record(new StockMovement(item.id(), StockMovement.Type.DEDUCTION, quantity.value(), balance,
                         reference, clock.instant()));
+                audit.record("STOCK_DEDUCTED", "STOCK_ITEM", item.id(), java.util.Map.of(
+                        "warehouseId", locationId, "materialId", materialId, "quantity", quantity.value(),
+                        "balanceAfter", balance, "reference", reference == null ? "" : reference));
                 return new StockLevel(locationId, materialId, balance, item.reservedQty());
             }
         }
@@ -59,6 +65,9 @@ public class StockOperations {
         StockItem item = stock.add(locationId, materialId, quantity);
         stock.record(new StockMovement(item.id(), StockMovement.Type.ENTRY, quantity.value(), item.availableQty(),
                 reference, clock.instant()));
+        audit.record("STOCK_ADDED", "STOCK_ITEM", item.id(), java.util.Map.of(
+                "warehouseId", locationId, "materialId", materialId, "quantity", quantity.value(),
+                "balanceAfter", item.availableQty(), "reference", reference == null ? "" : reference));
         return new StockLevel(locationId, materialId, item.availableQty(), item.reservedQty());
     }
 }

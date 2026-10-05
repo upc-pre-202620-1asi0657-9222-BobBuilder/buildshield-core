@@ -6,6 +6,10 @@ spring:
     username: ${CORE_DB_USER}
     password: ${CORE_DB_PASSWORD}
 
+  flyway:
+    user: ${CORE_DB_MIGRATION_USER:${CORE_DB_USER}}
+    password: ${CORE_DB_MIGRATION_PASSWORD:${CORE_DB_PASSWORD}}
+
 buildshield:
   security:
     # Claves RSA en PEM (ver README: cómo generarlas con openssl).

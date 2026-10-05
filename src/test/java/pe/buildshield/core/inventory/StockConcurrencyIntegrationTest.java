@@ -5,7 +5,6 @@ import org.junit.jupiter.api.RepetitionInfo;
 import org.junit.jupiter.api.RepeatedTest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.testcontainers.junit.jupiter.Testcontainers;
 import pe.buildshield.core.shared.tenant.TenantContext;
 import pe.buildshield.core.shared.tenant.TenantInfo;
 import pe.buildshield.core.support.CoreIntegrationTest;
@@ -28,7 +27,6 @@ import static org.assertj.core.api.Assertions.assertThat;
  * queda negativo. Se repite 50 veces para que el entrelazado de los hilos varíe.
  */
 @CoreIntegrationTest
-@Testcontainers(disabledWithoutDocker = true)
 class StockConcurrencyIntegrationTest {
 
     private static final TenantInfo WAREHOUSE_MANAGER =

@@ -2,9 +2,11 @@
 
 Core logístico de BuildShield: **monolito modular**, la única unidad desplegable del sistema. Módulos: `iam`, `organization`, `inventory`, `ordering`, `dispatch`, `reception`, `subscription`, `notification` y `audit`. Los módulos se comunican solo por llamadas en proceso a la fachada del otro módulo. El kernel compartido (`pe.buildshield.core.shared`: JWT, multiempresa, errores, idempotencia, correlación) vive dentro del Core.
 
+La configuración de recuperación, auditoría y verificación está en [docs/backend-hardening.md](docs/backend-hardening.md). La evidencia medida y la matriz Driver–QAS están en [docs/verification/README.md](docs/verification/README.md).
+
 ## Requisitos
 - Java 21
-- Docker (para la base local con `docker-compose.yml` y las pruebas con Testcontainers)
+- PostgreSQL: Docker para el entorno local/Testcontainers, o bases temporales externas explícitas para pruebas.
 
 ## Estructura
 ```

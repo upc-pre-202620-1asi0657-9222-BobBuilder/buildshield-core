@@ -27,11 +27,12 @@ import static org.mockito.Mockito.when;
 
 class MaterialServiceTest {
 
+    private final pe.buildshield.core.audit.AuditTrail audit = pe.buildshield.core.support.AuditTestSupport.noop();
     private static final UUID ID = UUID.randomUUID();
 
     private final MaterialRepository materials = mock(MaterialRepository.class);
     private final SiteVisibility visibility = mock(SiteVisibility.class);
-    private final MaterialService service = new MaterialService(materials, visibility);
+    private final MaterialService service = new MaterialService(materials, visibility, audit);
 
     @Test
     void registers_with_normalized_sku() {

@@ -38,6 +38,7 @@ import static org.mockito.Mockito.when;
 
 class OrderServiceTest {
 
+    private final pe.buildshield.core.audit.AuditTrail audit = pe.buildshield.core.support.AuditTestSupport.noop();
     private static final Instant NOW = Instant.parse("2026-10-04T12:00:00Z");
     private static final UUID ORG = UUID.randomUUID();
     private static final UUID JORGE = UUID.randomUUID();
@@ -49,7 +50,7 @@ class OrderServiceTest {
 
     private final OrderRepository orders = mock(OrderRepository.class);
     private final OrganizationContextFacade organization = mock(OrganizationContextFacade.class);
-    private final OrderService service = new OrderService(orders, organization, Clock.fixed(NOW, ZoneOffset.UTC));
+    private final OrderService service = new OrderService(orders, organization, Clock.fixed(NOW, ZoneOffset.UTC), audit);
 
     @BeforeEach
     void site() {

@@ -56,6 +56,24 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
+    void unavailable_revocation_database_returns_503_without_authenticating() throws Exception {
+        JwtAuthenticationFilter unavailable = new JwtAuthenticationFilter(decoder, id -> {
+            throw new org.springframework.dao.DataAccessResourceFailureException("credenciales privadas de la base");
+        }, new ErrorResponseWriter(new ObjectMapper()));
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/stock/entries");
+        request.addHeader("Authorization", "Bearer " + issuer.issue(TENANT).value());
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        java.util.concurrent.atomic.AtomicBoolean executed = new java.util.concurrent.atomic.AtomicBoolean();
+        unavailable.doFilter(request, response, (req, res) -> executed.set(true));
+        assertThat(response.getStatus()).isEqualTo(503);
+        assertThat(response.getHeader("Retry-After")).isEqualTo("1");
+        assertThat(response.getContentAsString()).contains("TEMPORARILY_UNAVAILABLE").doesNotContain("credenciales privadas");
+        assertThat(executed).isFalse();
+        assertThat(TenantContext.current()).isEmpty();
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+    }
+
+    @Test
     void valid_token_loads_security_and_tenant_context_during_the_request() throws Exception {
         String token = issuer.issue(TENANT).value();
         AtomicReference<TenantInfo> tenantInChain = new AtomicReference<>();

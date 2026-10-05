@@ -1,0 +1,43 @@
+{
+  "startedAt" : "2026-10-05T08:36:14.041627800Z",
+  "finishedAt" : "2026-10-05T08:37:14.103741300Z",
+  "users" : 50,
+  "durationSeconds" : 60,
+  "requests" : 99677,
+  "errors" : 0,
+  "postgresql" : "PostgreSQL 18.2 on x86_64-windows, compiled by msvc-19.44.35222, 64-bit",
+  "java" : "21.0.10",
+  "os" : "Windows 10",
+  "processors" : 12,
+  "maxHeapBytes" : 4261412864,
+  "clientMode" : "closed-loop HTTP, read-only, one shared administrator session",
+  "authenticatedSubjects" : 1,
+  "testConnectionPoolMaximum" : 6,
+  "dataset" : {
+    "warehouses" : 1,
+    "materials" : 1,
+    "orders" : 1,
+    "stockItems" : 1,
+    "organizations" : 1
+  },
+  "endpoints" : {
+    "/api/v1/stock" : {
+      "p95Ms" : 77.56,
+      "maxMs" : 831.4195,
+      "requests" : 33223,
+      "p50Ms" : 21.596599
+    },
+    "/api/v1/audit/events" : {
+      "p95Ms" : 74.8139,
+      "maxMs" : 666.045001,
+      "requests" : 33227,
+      "p50Ms" : 20.858001
+    },
+    "/api/v1/orders/802d6f17-595e-41eb-adc3-f4d964c5a87f" : {
+      "p95Ms" : 76.2775,
+      "maxMs" : 559.164699,
+      "requests" : 33227,
+      "p50Ms" : 20.819
+    }
+  }
+}

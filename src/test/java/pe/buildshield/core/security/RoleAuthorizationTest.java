@@ -83,6 +83,9 @@ class RoleAuthorizationTest {
             Map.entry("stock-entry", "{\"warehouseId\":\"00000000-0000-0000-0000-0000000000aa\",\"materialId\":\"00000000-0000-0000-0000-0000000000aa\",\"quantity\":10}"),
             Map.entry("create-user", "{\"fullName\":\"Rosa\",\"email\":\"rosa@andina.pe\",\"role\":\"WAREHOUSE_MANAGER\",\"password\":\"Almacen123\"}"));
 
+    @MockitoBean
+    pe.buildshield.core.audit.AuditTrail auditTrail;
+
     @Autowired
     MockMvc mvc;
 
@@ -173,6 +176,10 @@ class RoleAuthorizationTest {
 
     @ParameterizedTest(name = "{0} {1} como {2} -> {3}")
     @CsvSource({
+            "GET, /api/v1/audit/events, , ANONYMOUS, 401",
+            "GET, /api/v1/audit/events, , ADMINISTRATOR, 200",
+            "GET, /api/v1/audit/events, , WAREHOUSE_MANAGER, 403",
+            "GET, /api/v1/audit/events, , SITE_MANAGER, 403",
             // endpoint              , cuerpo     , quién             , estado
             "POST, /api/v1/auth/sign-up , sign-up    , ANONYMOUS        , 201",
             "POST, /api/v1/auth/sign-in , sign-in    , ANONYMOUS        , 200",

@@ -95,6 +95,21 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 ErrorResponse.of("INTERNAL_ERROR", "Ocurrió un error inesperado"));
     }
 
+    @ExceptionHandler({org.springframework.dao.TransientDataAccessException.class,
+            org.springframework.dao.DataAccessResourceFailureException.class,
+            org.springframework.transaction.CannotCreateTransactionException.class,
+            org.springframework.transaction.TransactionTimedOutException.class})
+    ResponseEntity<Object> handleTemporaryFailure(Exception ex) {
+        for (Throwable cause = ex; cause != null; cause = cause.getCause()) {
+            if (cause instanceof MissingTenantContextException missingTenant) {
+                return handleMissingTenant(missingTenant);
+            }
+        }
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).header("Retry-After", "1")
+                .body(ErrorResponse.of("TEMPORARILY_UNAVAILABLE",
+                        "La operación no pudo completarse; reintenta con la misma clave"));
+    }
+
     @Override
     protected ResponseEntity<Object> handleMethodArgumentNotValid(MethodArgumentNotValidException ex,
             HttpHeaders headers, HttpStatusCode status, WebRequest request) {

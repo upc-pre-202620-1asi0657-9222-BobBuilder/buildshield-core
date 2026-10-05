@@ -1,5 +1,6 @@
 package pe.buildshield.core.organization.application;
 
+import pe.buildshield.core.audit.AuditTrail;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,10 +16,12 @@ public class RegisterOrganizationService {
 
     public static final String RUC_ALREADY_REGISTERED = "RUC_ALREADY_REGISTERED";
 
+    private final AuditTrail audit;
     private final OrganizationRepository organizations;
 
-    public RegisterOrganizationService(OrganizationRepository organizations) {
+    public RegisterOrganizationService(OrganizationRepository organizations, AuditTrail audit) {
         this.organizations = organizations;
+        this.audit = audit;
     }
 
     /** Se ejecuta dentro de la transacción de quien registra (por ejemplo, el alta en iam). */
@@ -29,6 +32,8 @@ public class RegisterOrganizationService {
             throw new ConflictException(RUC_ALREADY_REGISTERED, "Ya existe una organización con el RUC " + ruc);
         }
         organizations.save(organization);
+        audit.record("ORGANIZATION_CREATED", "ORGANIZATION", organizationId,
+                java.util.Map.of("ruc", organization.ruc().value(), "legalName", organization.legalName()));
         return organization;
     }
 }

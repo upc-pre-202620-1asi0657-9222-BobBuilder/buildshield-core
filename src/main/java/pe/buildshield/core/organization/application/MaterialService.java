@@ -1,5 +1,6 @@
 package pe.buildshield.core.organization.application;
 
+import pe.buildshield.core.audit.AuditTrail;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,12 +22,14 @@ public class MaterialService {
 
     public static final String SKU_ALREADY_EXISTS = "SKU_ALREADY_EXISTS";
 
+    private final AuditTrail audit;
     private final MaterialRepository materials;
     private final SiteVisibility visibility;
 
-    public MaterialService(MaterialRepository materials, SiteVisibility visibility) {
+    public MaterialService(MaterialRepository materials, SiteVisibility visibility, AuditTrail audit) {
         this.materials = materials;
         this.visibility = visibility;
+        this.audit = audit;
     }
 
     @Transactional
@@ -38,7 +41,7 @@ public class MaterialService {
             throw skuAlreadyExists(sku);
         }
         try {
-            return MaterialView.of(materials.save(material));
+            return audit.recorded("MATERIAL_CREATED", "MATERIAL", MaterialView.of(materials.save(material)));
         } catch (DataIntegrityViolationException ex) {
             if (String.valueOf(ex.getMostSpecificCause().getMessage()).contains("uk_materials_organization_sku")) {
                 throw skuAlreadyExists(sku);
@@ -63,7 +66,7 @@ public class MaterialService {
         material.update(command.name(), command.unit(),
                 command.wasteTolerancePercent() == null ? null : new WasteTolerance(command.wasteTolerancePercent()),
                 command.active());
-        return MaterialView.of(materials.save(material));
+        return audit.recorded("MATERIAL_UPDATED", "MATERIAL", MaterialView.of(materials.save(material)));
     }
 
     private static ConflictException skuAlreadyExists(Sku sku) {

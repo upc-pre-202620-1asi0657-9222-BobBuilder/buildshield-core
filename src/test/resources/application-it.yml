@@ -1,6 +1,10 @@
 # Perfil it: pruebas de integración del kernel compartido con la aplicación de prueba
 # (pe.buildshield.testapp). Usa las migraciones del Core más las tablas de prueba.
 spring:
+  datasource:
+    hikari:
+      minimum-idle: 1
+      maximum-pool-size: 6
   jpa:
     open-in-view: false
     hibernate:

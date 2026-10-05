@@ -54,6 +54,10 @@ public class ScenarioSession {
         if (body != null) {
             spec.contentType(MediaType.APPLICATION_JSON).body(json.writeValueAsString(body));
         }
+        if (request.method() == org.springframework.http.HttpMethod.POST &&
+                (request.pathAndQuery().startsWith("/api/v1/orders") || request.pathAndQuery().equals("/api/v1/stock/entries"))) {
+            spec.header("Idempotency-Key", UUID.randomUUID().toString());
+        }
         if (bearer != null) {
             spec.header("Authorization", "Bearer " + bearer);
         }

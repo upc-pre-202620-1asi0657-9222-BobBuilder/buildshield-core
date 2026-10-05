@@ -11,7 +11,6 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
-import org.testcontainers.junit.jupiter.Testcontainers;
 import pe.buildshield.core.support.CoreIntegrationTest;
 
 import java.util.ArrayList;
@@ -29,7 +28,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
  */
 @CoreIntegrationTest
 @AutoConfigureMockMvc
-@Testcontainers(disabledWithoutDocker = true)
 class OrdersStockIsolationIntegrationTest {
 
     @Autowired
@@ -56,7 +54,7 @@ class OrdersStockIsolationIntegrationTest {
 
     @BeforeEach
     void twoOrganizationsWithOrdersAndStock() throws Exception {
-        jdbc.execute("""
+        pe.buildshield.core.support.TestDatabase.reset(jdbc, """
                 TRUNCATE ordering.order_lines, ordering.orders, inventory.stock_movements, inventory.stock_items,
                          organization.staff_assignments, organization.materials, organization.warehouses,
                          organization.worksites, iam.refresh_tokens, iam.password_reset_tokens, iam.users,
@@ -161,6 +159,7 @@ class OrdersStockIsolationIntegrationTest {
         if (token != null) {
             request.header("Authorization", "Bearer " + token);
         }
+        request.header("Idempotency-Key", UUID.randomUUID().toString());
         return mvc.perform(request).andReturn();
     }
 

@@ -35,6 +35,7 @@ import static org.mockito.Mockito.when;
 
 class AssignmentServiceTest {
 
+    private final pe.buildshield.core.audit.AuditTrail audit = pe.buildshield.core.support.AuditTestSupport.noop();
     private static final Instant NOW = Instant.parse("2026-10-04T12:00:00Z");
     private static final UUID JORGE = UUID.randomUUID();
     private static final UUID ROSA = UUID.randomUUID();
@@ -48,7 +49,7 @@ class AssignmentServiceTest {
     private final StaffDirectory staff = mock(StaffDirectory.class);
     private final SiteVisibility visibility = mock(SiteVisibility.class);
     private final AssignmentService service = new AssignmentService(assignments, worksites, warehouses, staff,
-            visibility, Clock.fixed(NOW, ZoneOffset.UTC));
+            visibility, Clock.fixed(NOW, ZoneOffset.UTC), audit);
 
     @Test
     void assigns_a_site_manager_to_a_worksite() {

@@ -21,12 +21,13 @@ import static org.mockito.Mockito.when;
 
 class WorksiteServiceTest {
 
+    private final pe.buildshield.core.audit.AuditTrail audit = pe.buildshield.core.support.AuditTestSupport.noop();
     private static final Location LIMA = new Location("Av. Javier Prado 123", "San Isidro", "Lima", -12.09, -77.04);
     private static final UUID ID = UUID.randomUUID();
 
     private final WorksiteRepository worksites = mock(WorksiteRepository.class);
     private final SiteVisibility visibility = mock(SiteVisibility.class);
-    private final WorksiteService service = new WorksiteService(worksites, visibility);
+    private final WorksiteService service = new WorksiteService(worksites, visibility, audit);
 
     @Test
     void registers_and_returns_the_saved_worksite() {

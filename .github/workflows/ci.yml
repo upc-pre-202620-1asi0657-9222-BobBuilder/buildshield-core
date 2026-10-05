@@ -3,6 +3,8 @@ name: CI
 # Compila, ejecuta pruebas unitarias y de integración (Testcontainers),
 # valida la arquitectura con ArchUnit y verifica la cobertura con JaCoCo.
 on:
+  push:
+    branches: [develop, main]
   pull_request:
     branches: [develop, main]
 
@@ -27,4 +29,15 @@ jobs:
         with:
           name: jacoco-report
           path: target/site/jacoco/
+          if-no-files-found: ignore
+
+      - name: Upload verification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-verification
+          path: |
+            target/surefire-reports/
+            target/failsafe-reports/
+            target/verification/
           if-no-files-found: ignore

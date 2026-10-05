@@ -10,7 +10,6 @@ import org.springframework.context.event.EventListener;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.support.TransactionTemplate;
-import org.testcontainers.junit.jupiter.Testcontainers;
 import pe.buildshield.testapp.ClockTestConfig;
 import pe.buildshield.testapp.PostgresIntegrationTest;
 import pe.buildshield.testapp.Shipment;
@@ -30,7 +29,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @PostgresIntegrationTest
 @Import({ClockTestConfig.class, AuditableAggregateRootIT.EventCollector.class})
-@Testcontainers(disabledWithoutDocker = true)
 class AuditableAggregateRootIT {
 
     private static final UUID ORGANIZATION = UUID.randomUUID();

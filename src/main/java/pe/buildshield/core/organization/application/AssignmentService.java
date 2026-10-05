@@ -1,5 +1,6 @@
 package pe.buildshield.core.organization.application;
 
+import pe.buildshield.core.audit.AuditTrail;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,6 +32,7 @@ public class AssignmentService {
     public static final String ASSIGNMENT_ALREADY_ACTIVE = "ASSIGNMENT_ALREADY_ACTIVE";
     public static final String SITE_INACTIVE = "SITE_INACTIVE";
 
+    private final AuditTrail audit;
     private final StaffAssignmentRepository assignments;
     private final WorksiteRepository worksites;
     private final WarehouseRepository warehouses;
@@ -39,13 +41,14 @@ public class AssignmentService {
     private final Clock clock;
 
     public AssignmentService(StaffAssignmentRepository assignments, WorksiteRepository worksites,
-            WarehouseRepository warehouses, StaffDirectory staff, SiteVisibility visibility, Clock clock) {
+            WarehouseRepository warehouses, StaffDirectory staff, SiteVisibility visibility, Clock clock, AuditTrail audit) {
         this.assignments = assignments;
         this.worksites = worksites;
         this.warehouses = warehouses;
         this.staff = staff;
         this.visibility = visibility;
         this.clock = clock;
+        this.audit = audit;
     }
 
     @Transactional
@@ -60,7 +63,7 @@ public class AssignmentService {
             throw alreadyActive();
         }
         try {
-            return AssignmentView.of(assignments.save(assignment));
+            return audit.recorded("ASSIGNMENT_CREATED", "ASSIGNMENT", AssignmentView.of(assignments.save(assignment)));
         } catch (DataIntegrityViolationException ex) {
             if (String.valueOf(ex.getMostSpecificCause().getMessage()).contains("uk_staff_assignments_active")) {
                 throw alreadyActive();
@@ -89,7 +92,7 @@ public class AssignmentService {
                     List.of(new ErrorDetail("active", "debe ser false")));
         }
         assignment.end(clock.instant());
-        return AssignmentView.of(assignments.save(assignment));
+        return audit.recorded("ASSIGNMENT_ENDED", "ASSIGNMENT", AssignmentView.of(assignments.save(assignment)));
     }
 
     private void requireActiveSite(SiteType siteType, UUID siteId) {

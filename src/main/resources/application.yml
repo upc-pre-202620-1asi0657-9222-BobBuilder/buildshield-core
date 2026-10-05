@@ -7,6 +7,14 @@ spring:
     open-in-view: false
     hibernate:
       ddl-auto: validate
+  datasource:
+    hikari:
+      connection-timeout: ${DB_CONNECTION_TIMEOUT_MS:5000}
+      validation-timeout: 2000
+      data-source-properties:
+        options: "-c statement_timeout=${DB_STATEMENT_TIMEOUT_MS:5000} -c lock_timeout=${DB_LOCK_TIMEOUT_MS:2000}"
+        connectTimeout: 5
+        socketTimeout: 10
   flyway:
     enabled: true
     locations: classpath:db/migration
@@ -31,6 +39,12 @@ springdoc:
 buildshield:
   security:
     issuer: buildshield-core
+  idempotency:
+    required-paths:
+      - /api/v1/stock/entries
+      - /api/v1/orders
+      - /api/v1/orders/*/approve
+      - /api/v1/orders/*/reject
   iam:
     # Duración de la sesión renovable y del enlace de recuperación de contraseña.
     refresh-token-ttl: P7D

@@ -30,11 +30,12 @@ import static org.mockito.Mockito.when;
 
 class UserManagementServiceTest {
 
+    private final pe.buildshield.core.audit.AuditTrail audit = pe.buildshield.core.support.AuditTestSupport.noop();
     private static final UUID ORG = UUID.randomUUID();
 
     private final UserRepository users = mock(UserRepository.class);
     private final PasswordEncoder encoder = mock(PasswordEncoder.class);
-    private final UserManagementService service = new UserManagementService(users, encoder);
+    private final UserManagementService service = new UserManagementService(users, encoder, audit);
 
     @BeforeEach
     void admin() {

@@ -60,8 +60,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             unauthorized(response, "INVALID_TOKEN", "El token es inválido o expiró");
             return;
         }
-        if (revokedTokens.isRevoked(jwt.getId())) {
-            unauthorized(response, "TOKEN_REVOKED", "El token fue revocado");
+        try {
+            if (revokedTokens.isRevoked(jwt.getId())) {
+                unauthorized(response, "TOKEN_REVOKED", "El token fue revocado");
+                return;
+            }
+        } catch (org.springframework.dao.TransientDataAccessException
+                | org.springframework.dao.DataAccessResourceFailureException
+                | org.springframework.transaction.CannotCreateTransactionException ex) {
+            SecurityContextHolder.clearContext();
+            TenantContext.clear();
+            response.setHeader("Retry-After", "1");
+            errorWriter.write(response, HttpServletResponse.SC_SERVICE_UNAVAILABLE,
+                    ErrorResponse.of("TEMPORARILY_UNAVAILABLE", "No se pudo validar la sesión; reintenta con la misma clave"));
             return;
         }
 

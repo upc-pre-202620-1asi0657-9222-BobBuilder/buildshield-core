@@ -9,10 +9,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-/**
- * Core completo contra PostgreSQL de Testcontainers. Cada clase declara además
- * {@code @Testcontainers(disabledWithoutDocker = true)}.
- */
+/** Base PostgreSQL obligatoria: Testcontainers o conexión temporal externa explícita. */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
 @SpringBootTest

@@ -6,7 +6,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.support.TransactionTemplate;
-import org.testcontainers.junit.jupiter.Testcontainers;
 import pe.buildshield.core.shared.tenant.TenantContext;
 import pe.buildshield.core.shared.tenant.TenantInfo;
 import pe.buildshield.core.iam.application.SignUpService;
@@ -38,7 +37,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * StaffDirectory implementado por iam, contra PostgreSQL real.
  */
 @CoreIntegrationTest
-@Testcontainers(disabledWithoutDocker = true)
 class OrganizationPersistenceIT {
 
     @Autowired
@@ -67,7 +65,7 @@ class OrganizationPersistenceIT {
 
     @BeforeEach
     void twoOrganizations() {
-        jdbc.execute("""
+        pe.buildshield.core.support.TestDatabase.reset(jdbc, """
                 TRUNCATE organization.staff_assignments, organization.materials, organization.warehouses,
                          organization.worksites, iam.refresh_tokens, iam.password_reset_tokens, iam.users,
                          organization.organizations CASCADE""");

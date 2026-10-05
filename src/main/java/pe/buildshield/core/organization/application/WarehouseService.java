@@ -1,5 +1,6 @@
 package pe.buildshield.core.organization.application;
 
+import pe.buildshield.core.audit.AuditTrail;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pe.buildshield.core.shared.error.ResourceNotFoundException;
@@ -14,17 +15,19 @@ import java.util.UUID;
 @Service
 public class WarehouseService {
 
+    private final AuditTrail audit;
     private final WarehouseRepository warehouses;
     private final SiteVisibility visibility;
 
-    public WarehouseService(WarehouseRepository warehouses, SiteVisibility visibility) {
+    public WarehouseService(WarehouseRepository warehouses, SiteVisibility visibility, AuditTrail audit) {
         this.warehouses = warehouses;
         this.visibility = visibility;
+        this.audit = audit;
     }
 
     @Transactional
     public WarehouseView register(RegisterWarehouse command) {
-        return WarehouseView.of(warehouses.save(Warehouse.register(command.name(), command.type(), command.address())));
+        return audit.recorded("WAREHOUSE_CREATED", "WAREHOUSE", WarehouseView.of(warehouses.save(Warehouse.register(command.name(), command.type(), command.address()))));
     }
 
     @Transactional(readOnly = true)
@@ -46,7 +49,7 @@ public class WarehouseService {
         } else if (Boolean.TRUE.equals(command.active())) {
             warehouse.activate();
         }
-        return WarehouseView.of(warehouses.save(warehouse));
+        return audit.recorded("WAREHOUSE_UPDATED", "WAREHOUSE", WarehouseView.of(warehouses.save(warehouse)));
     }
 
     static ResourceNotFoundException notFound(UUID id) {

@@ -1,0 +1,69 @@
+{
+  "verifiedAt": "2026-10-05T03:31:37-05:00",
+  "branch": "develop",
+  "baseCommit": "18f031a",
+  "build": "SUCCESS",
+  "maven": "3.9.11",
+  "java": "21.0.10",
+  "postgresql": "18.2",
+  "databaseMode": "exclusive temporary local PostgreSQL cluster; separate Core and kernel databases",
+  "unitTests": {
+    "tests": 479,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "integrationAndAcceptanceTests": {
+    "tests": 181,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "domainAndApplicationLineCoverage": {
+    "covered": 985,
+    "missed": 2,
+    "percent": 99.8,
+    "requiredPercent": 80,
+    "result": "PASS"
+  },
+  "tddRedChecks": [
+    {
+      "scenario": "body reuse, owner isolation, original Location",
+      "initialFailures": 3,
+      "resultAfterImplementation": "PASS"
+    },
+    {
+      "scenario": "new audit endpoint",
+      "initialHttpStatus": 404,
+      "resultAfterImplementation": "PASS"
+    },
+    {
+      "scenario": "revocation database unavailable",
+      "initialResult": "uncaught DataAccessResourceFailureException",
+      "resultAfterImplementation": "503 controlled; PASS"
+    }
+  ],
+  "artifacts": {
+    "fullVerifyLogSha256": "de4585ddd32f505c2cb73942b6b8aa694a5558468eb8e16aac20db858137f2b4",
+    "fullSuiteSummarySha256": "20020c62d2128d87109b095206870d44527f2cb9111b3f6fb7dbe194e79f26bf",
+    "loadLogSha256": "db5291792ade03af5304aadf97a719fb77349bd0758eaf08bc7c23ad2b78d851"
+  },
+  "reproduction": "See docs/backend-hardening.md and scripts/verify-backend.ps1; PowerShell launcher syntax validated, Maven executions verified directly",
+  "missingDatabaseCheck": {
+    "command": "mvn -Dit.test=HealthEndpointIT failsafe:integration-test failsafe:verify (without external database opt-in)",
+    "expectedResult": "BUILD FAILURE",
+    "actualResult": "BUILD FAILURE",
+    "errors": 2,
+    "skipped": 0,
+    "cause": "Could not find a valid Docker environment",
+    "assessment": "PASS: mandatory integration tests fail instead of silently skipping"
+  },
+  "loadTest": {
+    "result": "PASS",
+    "clients": 50,
+    "seconds": 60,
+    "requests": 99677,
+    "errors": 0,
+    "report": "backend-load.json"
+  }
+}

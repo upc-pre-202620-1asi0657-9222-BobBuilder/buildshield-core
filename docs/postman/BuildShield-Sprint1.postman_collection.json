@@ -741,6 +741,18 @@
                   "});"
                 ]
               }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Conservar esta clave para reintentos; borrar la variable de colección solo para una intención nueva.",
+                  "if (!pm.collectionVariables.get(\"operation_key_registrar_entrada_de_material\")) {",
+                  "  pm.collectionVariables.set(\"operation_key_registrar_entrada_de_material\", pm.variables.replaceIn(\"{{$guid}}\"));",
+                  "}"
+                ]
+              }
             }
           ],
           "request": {
@@ -749,6 +761,11 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{operation_key_registrar_entrada_de_material}}",
+                "type": "text"
               }
             ],
             "url": {
@@ -781,7 +798,8 @@
                   "language": "json"
                 }
               }
-            }
+            },
+            "description": "\nIdempotency-Key obligatoria. Repetir con la misma clave y datos recupera el resultado; borrar la variable operation_key_registrar_entrada_de_material para iniciar otra operación."
           }
         },
         {
@@ -914,6 +932,18 @@
                   "});"
                 ]
               }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Conservar esta clave para reintentos; borrar la variable de colección solo para una intención nueva.",
+                  "if (!pm.collectionVariables.get(\"operation_key_crear_pedido\")) {",
+                  "  pm.collectionVariables.set(\"operation_key_crear_pedido\", pm.variables.replaceIn(\"{{$guid}}\"));",
+                  "}"
+                ]
+              }
             }
           ],
           "request": {
@@ -922,6 +952,11 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{operation_key_crear_pedido}}",
+                "type": "text"
               }
             ],
             "url": {
@@ -953,7 +988,8 @@
                   "language": "json"
                 }
               }
-            }
+            },
+            "description": "\nIdempotency-Key obligatoria. Repetir con la misma clave y datos recupera el resultado; borrar la variable operation_key_crear_pedido para iniciar otra operación."
           }
         }
       ]
@@ -978,11 +1014,29 @@
                   "});"
                 ]
               }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Conservar esta clave para reintentos; borrar la variable de colección solo para una intención nueva.",
+                  "if (!pm.collectionVariables.get(\"operation_key_aprobar_pedido\")) {",
+                  "  pm.collectionVariables.set(\"operation_key_aprobar_pedido\", pm.variables.replaceIn(\"{{$guid}}\"));",
+                  "}"
+                ]
+              }
             }
           ],
           "request": {
             "method": "POST",
-            "header": [],
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{operation_key_aprobar_pedido}}",
+                "type": "text"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/orders/{{orderId}}/approve",
               "host": [
@@ -996,7 +1050,7 @@
                 "approve"
               ]
             },
-            "description": "Lo aprueba el encargado del almacén de origen.",
+            "description": "Lo aprueba el encargado del almacén de origen.\nIdempotency-Key obligatoria. Repetir con la misma clave y datos recupera el resultado; borrar la variable operation_key_aprobar_pedido para iniciar otra operación.",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -1026,11 +1080,29 @@
                   "});"
                 ]
               }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Conservar esta clave para reintentos; borrar la variable de colección solo para una intención nueva.",
+                  "if (!pm.collectionVariables.get(\"operation_key_aprobar_otra_vez_409\")) {",
+                  "  pm.collectionVariables.set(\"operation_key_aprobar_otra_vez_409\", pm.variables.replaceIn(\"{{$guid}}\"));",
+                  "}"
+                ]
+              }
             }
           ],
           "request": {
             "method": "POST",
-            "header": [],
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{operation_key_aprobar_otra_vez_409}}",
+                "type": "text"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/orders/{{orderId}}/approve",
               "host": [
@@ -1053,7 +1125,8 @@
                   "type": "string"
                 }
               ]
-            }
+            },
+            "description": "\nIdempotency-Key obligatoria. Repetir con la misma clave y datos recupera el resultado; borrar la variable operation_key_aprobar_otra_vez_409 para iniciar otra operación."
           }
         }
       ]
@@ -1192,6 +1265,47 @@
                 }
               ]
             }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auditoría",
+      "item": [
+        {
+          "name": "Consultar historial de la empresa",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/audit/events?page=0&size=50",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "audit",
+                "events"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "0"
+                },
+                {
+                  "key": "size",
+                  "value": "50"
+                }
+              ]
+            },
+            "description": "Solo el administrador. Filtros opcionales resourceType y resourceId; size máximo 100."
           }
         }
       ]

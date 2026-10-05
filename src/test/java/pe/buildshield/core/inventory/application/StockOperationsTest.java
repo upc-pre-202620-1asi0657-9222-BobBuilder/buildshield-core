@@ -32,13 +32,14 @@ import static org.mockito.Mockito.when;
 /** Descuento con bloqueo optimista: hasta 3 reintentos; sin stock, falla sin efectos. */
 class StockOperationsTest {
 
+    private final pe.buildshield.core.audit.AuditTrail audit = pe.buildshield.core.support.AuditTestSupport.noop();
     private static final Instant NOW = Instant.parse("2026-10-04T12:00:00Z");
     private static final UUID WAREHOUSE = UUID.randomUUID();
     private static final UUID CEMENT = UUID.randomUUID();
     private static final UUID ITEM = UUID.randomUUID();
 
     private final StockRepository stock = mock(StockRepository.class);
-    private final StockOperations operations = new StockOperations(stock, Clock.fixed(NOW, ZoneOffset.UTC));
+    private final StockOperations operations = new StockOperations(stock, Clock.fixed(NOW, ZoneOffset.UTC), audit);
 
     private static StockItem item(String available, long version) {
         return new StockItem(ITEM, WAREHOUSE, CEMENT, new BigDecimal(available), BigDecimal.ZERO, version);
