@@ -107,6 +107,21 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
+    void an_expired_or_revoked_token_does_not_block_refreshing_the_session() throws Exception {
+        JwtTokenIssuer.IssuedToken revoked = issuer.issue(ANA);
+        when(revokedTokens.isRevoked(revoked.tokenId())).thenReturn(true);
+        when(authenticationService.refresh("r")).thenReturn(new AuthenticationService.SessionTokens(
+                "a", Instant.now(), "r2", Instant.now()));
+
+        mvc.perform(post("/api/v1/auth/refresh").header("Authorization", "Bearer " + revoked.value())
+                        .contentType("application/json").content("{\"refreshToken\":\"r\"}"))
+                .andExpect(status().isOk());
+        mvc.perform(post("/api/v1/auth/refresh").header("Authorization", "Bearer basura")
+                        .contentType("application/json").content("{\"refreshToken\":\"r\"}"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     void public_endpoints_do_not_need_a_token() throws Exception {
         when(authenticationService.refresh(any())).thenThrow(
                 pe.buildshield.core.iam.domain.model.AuthenticationFailedException.invalidRefreshToken());
