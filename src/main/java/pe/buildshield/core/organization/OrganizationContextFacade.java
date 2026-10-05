@@ -4,6 +4,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import pe.buildshield.core.organization.domain.model.Material;
 import pe.buildshield.core.organization.domain.model.MaterialRepository;
+import pe.buildshield.core.organization.domain.model.SiteType;
 import pe.buildshield.core.organization.domain.model.Sku;
 import pe.buildshield.core.organization.domain.model.StaffAssignmentRepository;
 import pe.buildshield.core.organization.domain.model.Warehouse;
@@ -13,7 +14,9 @@ import pe.buildshield.core.organization.domain.model.WorksiteRepository;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.HashSet;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -71,6 +74,14 @@ public class OrganizationContextFacade {
     @Transactional(readOnly = true)
     public boolean isAssigned(UUID userId, UUID siteId) {
         return assignments.existsActive(userId, siteId);
+    }
+
+    /** Obras y almacenes a los que el usuario está asignado hoy. */
+    @Transactional(readOnly = true)
+    public Set<UUID> assignedSites(UUID userId) {
+        Set<UUID> sites = new HashSet<>(assignments.activeSiteIds(userId, SiteType.WORKSITE));
+        sites.addAll(assignments.activeSiteIds(userId, SiteType.WAREHOUSE));
+        return Set.copyOf(sites);
     }
 
     public record WorksiteSnapshot(UUID id, String name, String address, String district, String city,
