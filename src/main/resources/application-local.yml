@@ -1,4 +1,4 @@
-# Perfil local: usa la infraestructura de buildshield-infra (docker compose).
+# Perfil local: usa el PostgreSQL del docker-compose.yml de este repositorio.
 # Las credenciales solo llegan por variables de entorno.
 spring:
   datasource:
