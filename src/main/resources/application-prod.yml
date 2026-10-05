@@ -5,6 +5,10 @@ spring:
     username: ${DB_USER}
     password: ${DB_PASSWORD}
 
+  flyway:
+    user: ${DB_MIGRATION_USER}
+    password: ${DB_MIGRATION_PASSWORD}
+
 buildshield:
   security:
     jwt-public-key: ${BUILDSHIELD_JWT_PUBLIC_KEY}

@@ -37,9 +37,8 @@ class InMemoryIdempotencyStore implements IdempotencyStore {
     }
 
     @Override
-    public Optional<IdempotencyRecord> find(UUID organizationId, UUID key, Instant notBefore) {
-        return Optional.ofNullable(records.get(id(organizationId, key)))
-                .filter(record -> !record.createdAt().isBefore(notBefore));
+    public Optional<IdempotencyRecord> find(UUID organizationId, UUID key) {
+        return Optional.ofNullable(records.get(id(organizationId, key)));
     }
 
     @Override
@@ -53,14 +52,16 @@ class InMemoryIdempotencyStore implements IdempotencyStore {
     }
 
     @Override
-    public int deleteCreatedBefore(Instant threshold) {
+    public int retireResponsesCreatedBefore(Instant threshold) {
         List<String> expired = new ArrayList<>();
         records.forEach((id, record) -> {
-            if (record.createdAt().isBefore(threshold)) {
+            if (record.createdAt().isBefore(threshold) && !record.responseExpired()) {
                 expired.add(id);
             }
         });
-        expired.forEach(records::remove);
+        expired.forEach(id -> records.computeIfPresent(id, (ignored, r) -> new IdempotencyRecord(
+                r.organizationId(), r.key(), r.requestMethod(), r.requestPath(), r.responseStatus(),
+                null, null, r.createdAt(), r.userId(), r.role(), r.requestFingerprint(), null, true)));
         return expired.size();
     }
 

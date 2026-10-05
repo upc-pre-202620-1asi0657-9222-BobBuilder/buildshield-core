@@ -11,7 +11,6 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
-import org.testcontainers.junit.jupiter.Testcontainers;
 import pe.buildshield.core.support.CoreIntegrationTest;
 
 import java.util.ArrayList;
@@ -31,7 +30,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
  */
 @CoreIntegrationTest
 @AutoConfigureMockMvc
-@Testcontainers(disabledWithoutDocker = true)
 class OrganizationIsolationIntegrationTest {
 
     @Autowired
@@ -59,7 +57,7 @@ class OrganizationIsolationIntegrationTest {
 
     @BeforeEach
     void twoOrganizationsWithTheirOwnData() throws Exception {
-        jdbc.execute("""
+        pe.buildshield.core.support.TestDatabase.reset(jdbc, """
                 TRUNCATE organization.staff_assignments, organization.materials, organization.warehouses,
                          organization.worksites, iam.refresh_tokens, iam.password_reset_tokens, iam.users,
                          organization.organizations CASCADE""");

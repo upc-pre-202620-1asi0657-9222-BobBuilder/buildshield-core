@@ -1,5 +1,6 @@
 package pe.buildshield.core.ordering.application;
 
+import pe.buildshield.core.audit.AuditTrail;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pe.buildshield.core.shared.error.ConflictException;
@@ -32,14 +33,16 @@ public class OrderService {
 
     static final String ADMINISTRATOR = "ADMINISTRATOR";
 
+    private final AuditTrail audit;
     private final OrderRepository orders;
     private final OrganizationContextFacade organization;
     private final Clock clock;
 
-    public OrderService(OrderRepository orders, OrganizationContextFacade organization, Clock clock) {
+    public OrderService(OrderRepository orders, OrganizationContextFacade organization, Clock clock, AuditTrail audit) {
         this.orders = orders;
         this.organization = organization;
         this.clock = clock;
+        this.audit = audit;
     }
 
     /** US18: el encargado de obra pide materiales para una obra asignada a un almacén activo. */
@@ -57,7 +60,7 @@ public class OrderService {
         List<OrderLine> lines = command.lines().stream().map(this::line).toList();
         Order order = Order.place(command.worksiteId(), command.warehouseId(), requester.userId(), command.notes(),
                 lines, clock.instant());
-        return OrderView.of(orders.save(order));
+        return audit.recorded("ORDER_CREATED", "ORDER", OrderView.of(orders.save(order)));
     }
 
     /** US20: aprueba el encargado del almacén de origen o el administrador. */
@@ -65,7 +68,7 @@ public class OrderService {
     public OrderView approve(UUID orderId) {
         Order order = decidableOrder(orderId);
         order.approve(requester().userId(), clock.instant());
-        return OrderView.of(orders.save(order));
+        return audit.recorded("ORDER_APPROVED", "ORDER", OrderView.of(orders.save(order)));
     }
 
     /** US20: rechazo con motivo obligatorio; el pedido queda Cancelado. */
@@ -73,7 +76,7 @@ public class OrderService {
     public OrderView reject(UUID orderId, String reason) {
         Order order = decidableOrder(orderId);
         order.reject(requester().userId(), reason, clock.instant());
-        return OrderView.of(orders.save(order));
+        return audit.recorded("ORDER_REJECTED", "ORDER", OrderView.of(orders.save(order)));
     }
 
     /** US21: estado y cantidades por material. */

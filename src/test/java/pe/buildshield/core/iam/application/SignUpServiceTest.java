@@ -33,11 +33,12 @@ import static org.mockito.Mockito.when;
 
 class SignUpServiceTest {
 
+    private final pe.buildshield.core.audit.AuditTrail audit = pe.buildshield.core.support.AuditTestSupport.noop();
     private final OrganizationFacade organizations = mock(OrganizationFacade.class);
     private final UserRepository users = mock(UserRepository.class);
     private final PasswordEncoder encoder = mock(PasswordEncoder.class);
     private final TestTransactions transactions = new TestTransactions();
-    private final SignUpService service = new SignUpService(organizations, users, encoder, transactions.template());
+    private final SignUpService service = new SignUpService(organizations, users, encoder, transactions.template(), audit);
 
     private final SignUpService.SignUpCommand command = new SignUpService.SignUpCommand(
             "20123456789", "Constructora Andina SAC", "Ana Torres", "Ana@Andina.pe", "Segura123");

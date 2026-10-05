@@ -1,5 +1,6 @@
 package pe.buildshield.core.organization.application;
 
+import pe.buildshield.core.audit.AuditTrail;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pe.buildshield.core.shared.error.ResourceNotFoundException;
@@ -15,18 +16,20 @@ import java.util.UUID;
 @Service
 public class WorksiteService {
 
+    private final AuditTrail audit;
     private final WorksiteRepository worksites;
     private final SiteVisibility visibility;
 
-    public WorksiteService(WorksiteRepository worksites, SiteVisibility visibility) {
+    public WorksiteService(WorksiteRepository worksites, SiteVisibility visibility, AuditTrail audit) {
         this.worksites = worksites;
         this.visibility = visibility;
+        this.audit = audit;
     }
 
     @Transactional
     public WorksiteView register(RegisterWorksite command) {
         Worksite worksite = Worksite.register(command.name(), command.location(), command.startDate(), command.endDate());
-        return WorksiteView.of(worksites.save(worksite));
+        return audit.recorded("WORKSITE_CREATED", "WORKSITE", WorksiteView.of(worksites.save(worksite)));
     }
 
     /** 404 si no existe, es de otra organización o quien consulta no tiene acceso a ella. */
@@ -45,7 +48,7 @@ public class WorksiteService {
         Worksite worksite = worksites.findById(id).orElseThrow(() -> notFound(id));
         worksite.update(command.name(), command.mergedLocation(worksite.location()), command.startDate(),
                 command.endDate());
-        return WorksiteView.of(worksites.save(worksite));
+        return audit.recorded("WORKSITE_UPDATED", "WORKSITE", WorksiteView.of(worksites.save(worksite)));
     }
 
     private Worksite visibleWorksite(UUID id) {

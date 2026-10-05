@@ -1,6 +1,10 @@
 # Perfil test: Testcontainers (@ServiceConnection) aporta URL y credenciales
 # de PostgreSQL.
 spring:
+  datasource:
+    hikari:
+      minimum-idle: 1
+      maximum-pool-size: 6
   jpa:
     show-sql: false
 

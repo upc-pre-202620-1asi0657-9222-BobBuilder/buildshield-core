@@ -30,7 +30,7 @@ public class DatabaseHooks {
                   AND table_type = 'BASE TABLE'
                 """, String.class);
         if (!tables.isEmpty()) {
-            jdbc.execute("TRUNCATE TABLE " + String.join(", ", tables) + " CASCADE");
+            pe.buildshield.core.support.TestDatabase.reset(jdbc, "TRUNCATE TABLE " + String.join(", ", tables) + ", public.idempotency_keys CASCADE");
         }
         emails.clear();
         clock.setTo(Instant.now());

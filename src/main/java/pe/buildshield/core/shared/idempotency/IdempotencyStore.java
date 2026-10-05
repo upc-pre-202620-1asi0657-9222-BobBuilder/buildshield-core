@@ -17,12 +17,12 @@ public interface IdempotencyStore {
      */
     boolean tryLock(UUID organizationId, UUID key);
 
-    /** Busca el resultado guardado de la clave, ignorando los creados antes de {@code notBefore}. */
-    Optional<IdempotencyRecord> find(UUID organizationId, UUID key, Instant notBefore);
+    /** Busca incluso marcas históricas o con respuesta vencida: jamás permite duplicar el efecto. */
+    Optional<IdempotencyRecord> find(UUID organizationId, UUID key);
 
-    /** Guarda (o reemplaza, si había uno vencido) el resultado de la clave. */
+    /** Inserta la operación confirmada. Nunca reemplaza una identidad previa. */
     void save(IdempotencyRecord record);
 
-    /** Borra los resultados creados antes de {@code threshold}; devuelve cuántos borró. */
-    int deleteCreatedBefore(Instant threshold);
+    /** Retira respuestas anteriores a {@code threshold}; conserva sus marcas y devuelve cuántas retiró. */
+    int retireResponsesCreatedBefore(Instant threshold);
 }

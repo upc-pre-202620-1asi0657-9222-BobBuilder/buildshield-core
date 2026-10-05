@@ -4,28 +4,24 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.ActiveProfiles;
-import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
+import pe.buildshield.core.support.ContainersConfig;
+import org.springframework.context.annotation.Import;
+
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Levanta el Core completo contra PostgreSQL 16 real.
- * Se omite automáticamente si no hay Docker disponible.
+ * La base temporal es obligatoria; no se omite ninguna prueba.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
-@Testcontainers(disabledWithoutDocker = true)
+@Import(ContainersConfig.class)
 class HealthEndpointIT {
-
-    @Container
-    @ServiceConnection
-    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine");
 
     @Autowired
     TestRestTemplate rest;

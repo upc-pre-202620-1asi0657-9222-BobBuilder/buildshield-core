@@ -12,7 +12,6 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
-import org.testcontainers.junit.jupiter.Testcontainers;
 import pe.buildshield.core.shared.error.ErrorResponseWriter;
 import pe.buildshield.testapp.ClockTestConfig;
 import pe.buildshield.testapp.Note;
@@ -35,7 +34,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 /** Idempotencia completa contra PostgreSQL: advisory lock, tabla idempotency_keys y efecto en la misma transacción. */
 @PostgresIntegrationTest
 @Import(ClockTestConfig.class)
-@Testcontainers(disabledWithoutDocker = true)
 class IdempotencyKeyFilterIT {
 
     private static final TenantInfo TENANT = new TenantInfo(UUID.randomUUID(), UUID.randomUUID(), "RESIDENT");
@@ -114,7 +112,7 @@ class IdempotencyKeyFilterIT {
     }
 
     @Test
-    void expired_key_is_processed_again_and_purged() {
+    void expired_response_is_retired_without_repeating_the_operation() {
         UUID key = UUID.randomUUID();
         send(key, createChain());
 
@@ -122,12 +120,14 @@ class IdempotencyKeyFilterIT {
         MockHttpServletResponse again = send(key, createChain());
 
         assertThat(again.getHeader(IdempotencyKeyFilter.REPLAYED_HEADER)).isNull();
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM test_notes", Long.class)).isEqualTo(2);
+        assertThat(again.getStatus()).isEqualTo(409);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM test_notes", Long.class)).isEqualTo(1);
 
         clock.advance(Duration.ofHours(25));
         int purged = new IdempotencyKeyPurger(store, new TransactionTemplate(transactionManager), clock).purge();
         assertThat(purged).isEqualTo(1);
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM idempotency_keys", Long.class)).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM idempotency_keys", Long.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT response_expired FROM idempotency_keys", Boolean.class)).isTrue();
     }
 
     @Test

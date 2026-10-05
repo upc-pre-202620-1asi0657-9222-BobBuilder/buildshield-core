@@ -6,7 +6,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.test.web.servlet.MockMvc;
-import org.testcontainers.junit.jupiter.Testcontainers;
 import pe.buildshield.core.support.CoreIntegrationTest;
 
 import java.util.ArrayList;
@@ -26,7 +25,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  */
 @CoreIntegrationTest
 @AutoConfigureMockMvc
-@Testcontainers(disabledWithoutDocker = true)
 class OpenApiCompletenessIT {
 
     private static final Set<String> HTTP_METHODS = Set.of("get", "post", "put", "patch", "delete");

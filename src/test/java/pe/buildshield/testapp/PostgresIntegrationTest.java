@@ -8,10 +8,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-/**
- * Prueba de integración con la aplicación de prueba y PostgreSQL real. Cada clase debe declarar
- * además {@code @Testcontainers(disabledWithoutDocker = true)}.
- */
+/** Base PostgreSQL obligatoria: Testcontainers o conexión temporal externa explícita. */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
 @SpringBootTest(classes = {TestApplication.class, PostgresContainerConfig.class})

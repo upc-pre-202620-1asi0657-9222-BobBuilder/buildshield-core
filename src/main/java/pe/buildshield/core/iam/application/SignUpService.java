@@ -1,5 +1,6 @@
 package pe.buildshield.core.iam.application;
 
+import pe.buildshield.core.audit.AuditTrail;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -22,17 +23,19 @@ import java.util.UUID;
 @Service
 public class SignUpService {
 
+    private final AuditTrail audit;
     private final OrganizationFacade organizations;
     private final UserRepository users;
     private final PasswordEncoder passwordEncoder;
     private final TransactionTemplate transactionTemplate;
 
     public SignUpService(OrganizationFacade organizations, UserRepository users, PasswordEncoder passwordEncoder,
-            TransactionTemplate transactionTemplate) {
+            TransactionTemplate transactionTemplate, AuditTrail audit) {
         this.organizations = organizations;
         this.users = users;
         this.passwordEncoder = passwordEncoder;
         this.transactionTemplate = transactionTemplate;
+        this.audit = audit;
     }
 
     public SignUpResult signUp(SignUpCommand command) {
@@ -52,6 +55,8 @@ public class SignUpService {
                 }
                 User administrator = users.save(User.register(organizationId, email, command.adminFullName(),
                         Role.ADMINISTRATOR, passwordHash));
+                audit.record("USER_CREATED", "USER", administrator.id(), java.util.Map.of(
+                        "email", email.value(), "fullName", administrator.fullName(), "role", "ADMINISTRATOR"));
                 return new SignUpResult(organizationId, administrator.id());
             }));
         } catch (DataIntegrityViolationException ex) {

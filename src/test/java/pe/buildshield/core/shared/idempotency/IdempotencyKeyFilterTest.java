@@ -165,18 +165,19 @@ class IdempotencyKeyFilterTest {
 
         clock.advance(Duration.ofHours(2));
         assertThat(send(key, createdChain()).getHeader(IdempotencyKeyFilter.REPLAYED_HEADER)).isNull();
-        assertThat(effects).hasValue(2);
+        assertThat(effects).hasValue(1);
     }
 
     @Test
-    void purger_deletes_keys_older_than_24_hours() throws Exception {
+    void purger_retires_responses_but_keeps_operation_marks() throws Exception {
         send(UUID.randomUUID(), createdChain());
         IdempotencyKeyPurger purger = new IdempotencyKeyPurger(store, new TransactionTemplate(transactionManager), clock);
 
         assertThat(purger.purge()).isZero();
         clock.advance(Duration.ofHours(25));
         assertThat(purger.purge()).isEqualTo(1);
-        assertThat(store.size()).isZero();
+        assertThat(store.size()).isEqualTo(1);
+        assertThat(purger.purge()).isZero();
     }
 
     @Test
@@ -239,6 +240,97 @@ class IdempotencyKeyFilterTest {
             http.setContentType("application/json");
             http.getOutputStream().write(("{\"id\":" + id + "}").getBytes(StandardCharsets.UTF_8));
         };
+    }
+
+    @Test
+    void json_property_order_does_not_change_identity_and_controller_reads_the_body() throws Exception {
+        UUID key = UUID.randomUUID();
+        MockHttpServletRequest first = request("POST", "/api/v1/receptions", key);
+        first.setContentType("application/json");
+        first.setContent("{\"quantity\":10,\"material\":\"cemento\"}".getBytes(StandardCharsets.UTF_8));
+        run(first, (req, res) -> {
+            assertThat(new String(req.getInputStream().readAllBytes(), StandardCharsets.UTF_8)).contains("cemento");
+            createdChain().doFilter(req, res);
+        });
+        MockHttpServletRequest reordered = request("POST", "/api/v1/receptions", key);
+        reordered.setContentType("application/json");
+        reordered.setContent("{\"material\":\"cemento\",\"quantity\":10}".getBytes(StandardCharsets.UTF_8));
+        assertThat(run(reordered, createdChain()).getHeader(IdempotencyKeyFilter.REPLAYED_HEADER)).isEqualTo("true");
+        assertThat(effects).hasValue(1);
+    }
+
+    @Test
+    void changed_query_parameters_cannot_reuse_the_key() throws Exception {
+        UUID key = UUID.randomUUID();
+        MockHttpServletRequest first = request("POST", "/api/v1/receptions", key);
+        first.setQueryString("mode=normal");
+        run(first, createdChain());
+        MockHttpServletRequest changed = request("POST", "/api/v1/receptions", key);
+        changed.setQueryString("mode=otro");
+        assertThat(run(changed, createdChain()).getStatus()).isEqualTo(400);
+        assertThat(effects).hasValue(1);
+    }
+
+    @Test
+    void oversized_body_is_rejected_before_starting_business() throws Exception {
+        MockHttpServletRequest request = request("POST", "/api/v1/receptions", UUID.randomUUID());
+        request.setContent(new byte[BufferedRequest.MAX_BYTES + 1]);
+        assertThat(run(request, createdChain()).getStatus()).isEqualTo(413);
+        assertThat(effects).hasValue(0);
+    }
+
+    @Test
+    void transient_database_failure_is_controlled_without_an_effect() throws Exception {
+        IdempotencyStore unavailable = org.mockito.Mockito.mock(IdempotencyStore.class);
+        org.mockito.Mockito.when(unavailable.tryLock(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+                .thenThrow(new org.springframework.dao.TransientDataAccessResourceException("detalle privado"));
+        IdempotencyKeyFilter failing = new IdempotencyKeyFilter(unavailable, new TransactionTemplate(transactionManager),
+                new ErrorResponseWriter(new ObjectMapper()), clock, List.of());
+        TenantContext.set(TENANT);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        failing.doFilter(request("POST", "/api/v1/receptions", UUID.randomUUID()), response, createdChain());
+        assertThat(response.getStatus()).isEqualTo(503);
+        assertThat(response.getHeader("Retry-After")).isEqualTo("1");
+        assertThat(response.getContentAsString()).doesNotContain("detalle privado");
+        assertThat(effects).hasValue(0);
+    }
+
+    @Test
+    void repeated_key_with_different_data_is_rejected() throws Exception {
+        UUID key = UUID.randomUUID();
+        MockHttpServletRequest first = request("POST", "/api/v1/receptions", key);
+        first.setContentType("application/json");
+        first.setContent("{\"quantity\":10}".getBytes(StandardCharsets.UTF_8));
+        run(first, createdChain());
+        MockHttpServletRequest changed = request("POST", "/api/v1/receptions", key);
+        changed.setContentType("application/json");
+        changed.setContent("{\"quantity\":20}".getBytes(StandardCharsets.UTF_8));
+        MockHttpServletResponse response = run(changed, createdChain());
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(response.getContentAsString()).contains("IDEMPOTENCY_KEY_REUSED");
+        assertThat(effects).hasValue(1);
+    }
+
+    @Test
+    void another_user_cannot_replay_a_stored_response() throws Exception {
+        UUID key = UUID.randomUUID();
+        send(key, createdChain());
+        TenantContext.set(new TenantInfo(TENANT.organizationId(), UUID.randomUUID(), TENANT.role()));
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        filter.doFilter(request("POST", "/api/v1/receptions", key), response, createdChain());
+        assertThat(response.getStatus()).isEqualTo(403);
+        assertThat(response.getContentAsString()).contains("IDEMPOTENCY_OWNER_MISMATCH");
+        assertThat(effects).hasValue(1);
+    }
+
+    @Test
+    void replay_preserves_the_location_header() throws Exception {
+        UUID key = UUID.randomUUID();
+        send(key, (req, res) -> {
+            ((HttpServletResponse) res).setHeader("Location", "/api/v1/orders/123");
+            createdChain().doFilter(req, res);
+        });
+        assertThat(send(key, createdChain()).getHeader("Location")).isEqualTo("/api/v1/orders/123");
     }
 
     private MockHttpServletResponse send(UUID key, FilterChain chain) throws Exception {

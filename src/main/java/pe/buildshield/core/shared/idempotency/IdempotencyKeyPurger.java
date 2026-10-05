@@ -8,7 +8,7 @@ import pe.buildshield.core.shared.tenant.TenantContext;
 
 import java.time.Clock;
 
-/** Borra las claves de idempotencia con más de 24 horas. */
+/** Retira respuestas con más de 24 horas, conservando las marcas de las operaciones. */
 public class IdempotencyKeyPurger {
 
     private static final Logger log = LoggerFactory.getLogger(IdempotencyKeyPurger.class);
@@ -26,9 +26,9 @@ public class IdempotencyKeyPurger {
     @Scheduled(fixedDelayString = "${buildshield.idempotency.purge-interval:PT1H}")
     public int purge() {
         Integer deleted = TenantContext.callAsSystem(() -> transactionTemplate.execute(status ->
-                store.deleteCreatedBefore(clock.instant().minus(IdempotencyKeyFilter.RETENTION))));
+                store.retireResponsesCreatedBefore(clock.instant().minus(IdempotencyKeyFilter.RETENTION))));
         if (deleted != null && deleted > 0) {
-            log.info("Se borraron {} claves de idempotencia vencidas", deleted);
+            log.info("Se retiraron {} respuestas de idempotencia vencidas", deleted);
         }
         return deleted == null ? 0 : deleted;
     }

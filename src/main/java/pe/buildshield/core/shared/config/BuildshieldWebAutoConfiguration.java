@@ -45,7 +45,7 @@ import java.time.Clock;
 public class BuildshieldWebAutoConfiguration {
 
     /** Justo después de la cadena de Spring Security. */
-    public static final int IDEMPOTENCY_FILTER_ORDER = SecurityProperties.DEFAULT_FILTER_ORDER + 1;
+    public static final int IDEMPOTENCY_FILTER_ORDER = SecurityProperties.DEFAULT_FILTER_ORDER + 2;
 
     @Bean
     @ConditionalOnMissingBean
@@ -120,9 +120,9 @@ public class BuildshieldWebAutoConfiguration {
         @Bean
         FilterRegistrationBean<IdempotencyKeyFilter> idempotencyKeyFilter(IdempotencyStore store,
                 PlatformTransactionManager transactionManager, ErrorResponseWriter errorWriter, Clock clock,
-                BuildshieldProperties properties) {
+                BuildshieldProperties properties, ObjectProvider<pe.buildshield.core.shared.idempotency.ReplayAuthorizer> authorizers) {
             IdempotencyKeyFilter filter = new IdempotencyKeyFilter(store, new TransactionTemplate(transactionManager),
-                    errorWriter, clock, properties.getIdempotency().getRequiredPaths());
+                    errorWriter, clock, properties.getIdempotency().getRequiredPaths(), authorizers.orderedStream().toList());
             FilterRegistrationBean<IdempotencyKeyFilter> registration = new FilterRegistrationBean<>(filter);
             registration.setOrder(IDEMPOTENCY_FILTER_ORDER);
             return registration;

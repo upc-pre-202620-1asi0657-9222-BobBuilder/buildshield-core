@@ -5,7 +5,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.support.TransactionTemplate;
-import org.testcontainers.junit.jupiter.Testcontainers;
 import pe.buildshield.core.shared.error.ConflictException;
 import pe.buildshield.core.shared.tenant.TenantContext;
 import pe.buildshield.core.shared.tenant.TenantInfo;
@@ -24,7 +23,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /** Registro y usuarios contra PostgreSQL real, con el filtro multiempresa del kernel compartido. */
 @CoreIntegrationTest
-@Testcontainers(disabledWithoutDocker = true)
 class IamPersistenceIT {
 
     @Autowired

@@ -18,11 +18,12 @@ import static org.mockito.Mockito.when;
 
 class WarehouseServiceTest {
 
+    private final pe.buildshield.core.audit.AuditTrail audit = pe.buildshield.core.support.AuditTestSupport.noop();
     private static final UUID ID = UUID.randomUUID();
 
     private final WarehouseRepository warehouses = mock(WarehouseRepository.class);
     private final SiteVisibility visibility = mock(SiteVisibility.class);
-    private final WarehouseService service = new WarehouseService(warehouses, visibility);
+    private final WarehouseService service = new WarehouseService(warehouses, visibility, audit);
 
     @Test
     void registers_an_active_warehouse() {

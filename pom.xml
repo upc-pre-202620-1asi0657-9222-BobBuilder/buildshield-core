@@ -12,7 +12,7 @@
 
     <groupId>pe.buildshield</groupId>
     <artifactId>buildshield-core</artifactId>
-    <version>0.1.0-SNAPSHOT</version>
+    <version>1.0.0</version>
     <name>buildshield-core</name>
     <description>Core logístico de BuildShield (monolito modular)</description>
 
@@ -20,7 +20,6 @@
         <java.version>21</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <springdoc.version>2.8.17</springdoc.version>
-        <resilience4j.version>2.3.0</resilience4j.version>
         <archunit.version>1.4.2</archunit.version>
         <cucumber.version>7.34.9</cucumber.version>
         <jacoco.version>0.8.15</jacoco.version>
@@ -84,11 +83,6 @@
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
             <scope>runtime</scope>
-        </dependency>
-        <dependency>
-            <groupId>io.github.resilience4j</groupId>
-            <artifactId>resilience4j-spring-boot3</artifactId>
-            <version>${resilience4j.version}</version>
         </dependency>
         <dependency>
             <groupId>org.springdoc</groupId>
@@ -160,6 +154,7 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-failsafe-plugin</artifactId>
                 <configuration>
+                    <excludes><exclude>**/*LoadIT.java</exclude></excludes>
                     <includes>
                         <include>**/*IT.java</include>
                         <include>**/*IntegrationTest.java</include>
@@ -231,4 +226,16 @@
             </plugin>
         </plugins>
     </build>
+    <profiles>
+        <profile>
+            <id>load-tests</id>
+            <build><plugins><plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <configuration combine.self="override">
+                    <includes><include>**/BackendLoadIT.java</include></includes>
+                </configuration>
+            </plugin></plugins></build>
+        </profile>
+    </profiles>
 </project>

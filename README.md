@@ -2,9 +2,11 @@
 
 Core logístico de BuildShield: **monolito modular**, la única unidad desplegable del sistema. Módulos: `iam`, `organization`, `inventory`, `ordering`, `dispatch`, `reception`, `subscription`, `notification` y `audit`. Los módulos se comunican solo por llamadas en proceso a la fachada del otro módulo. El kernel compartido (`pe.buildshield.core.shared`: JWT, multiempresa, errores, idempotencia, correlación) vive dentro del Core.
 
+La configuración de recuperación, auditoría y verificación está en [docs/backend-hardening.md](docs/backend-hardening.md). La evidencia medida y la matriz Driver–QAS están en [docs/verification/README.md](docs/verification/README.md).
+
 ## Requisitos
 - Java 21
-- Docker (para la base local con `docker-compose.yml` y las pruebas con Testcontainers)
+- PostgreSQL: Docker para el entorno local/Testcontainers, o bases temporales externas explícitas para pruebas.
 
 ## Estructura
 ```
@@ -131,8 +133,17 @@ Ejecuta:
 El perfil `test` usa un par de claves RSA **solo de prueba** (`src/test/resources/application-test.yml`), que no se incluye en el jar.
 
 ## Documentación
+
+- Cambios por versión: [CHANGELOG.md](CHANGELOG.md).
+- Primera entrega estable del backend: [v1.0.0](docs/releases/v1.0.0.md).
+- Contratos, configuración y ejecución de pruebas: [backend-hardening.md](docs/backend-hardening.md).
+- Matriz técnica y evidencia medida: [verification](docs/verification/README.md).
 - Resumen del Sprint 1, pruebas, cobertura y criterios por historia: [docs/sprint-1](docs/sprint-1/README.md).
 - Colección Postman con el flujo del sprint: [docs/postman](docs/postman).
 
 ## Ramas
 GitFlow: `main`, `develop`, `feature/*`, `release/*`, `hotfix/*`. Commits con Conventional Commits.
+
+`main` conserva las versiones entregadas; `develop` integra la siguiente versión. Las ramas `feature/*` y `fix/*` contienen cambios concretos, `release/*` prepara una entrega y `hotfix/*` corrige una versión publicada. Los PRs se integran mediante merge commit para conservar los commits individuales. Después de integrar y verificar una rama temporal, se elimina.
+
+Versionado semántico: MAYOR.MENOR.PARCHE. Un cambio incompatible en la API incrementa MAYOR; una funcionalidad compatible incrementa MENOR; una corrección compatible incrementa PARCHE. El tag anotado `v1.0.0` marca el commit entregado y no se mueve después de publicarlo. La siguiente versión en desarrollo utiliza `1.1.0-SNAPSHOT`.
