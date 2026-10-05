@@ -1,4 +1,5 @@
 # language: es
+@US20
 Característica: US20 Aprobar o rechazar pedido
   Como encargado del almacén de origen o administrador
   quiero aprobar o rechazar los pedidos de las obras

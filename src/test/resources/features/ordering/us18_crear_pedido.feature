@@ -1,4 +1,5 @@
 # language: es
+@US18
 Característica: US18 Crear pedido de materiales
   Como encargado de obra
   quiero pedir materiales a un almacén para mi obra
@@ -60,6 +61,14 @@ Característica: US18 Crear pedido de materiales
       | material | cantidad |
       | CEM-001  | 50       |
     Entonces la operación es rechazada con estado 409 y código "SITE_INACTIVE"
+
+  Escenario: No se pide un material retirado del catálogo
+    Dado que retiré del catálogo el material "FIE-012"
+    Y que "jorge@andina.pe" inició sesión con la contraseña "Obra12345"
+    Cuando creo el pedido "P1" para la obra "Torre Norte" al almacén "Almacén Central" con:
+      | material | cantidad |
+      | FIE-012  | 10       |
+    Entonces la operación es rechazada con estado 409 y código "MATERIAL_INACTIVE"
 
   Escenario: Un encargado de almacén no crea pedidos
     Dado que "rosa@andina.pe" inició sesión con la contraseña "Almacen123"

@@ -1,6 +1,9 @@
 package pe.buildshield.core.organization.interfaces.rest;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -43,7 +46,9 @@ class AssignmentsController {
     @PreAuthorize("hasRole('ADMINISTRATOR')")
     @Operation(summary = "Asignar un encargado a una obra o almacén",
             description = "El encargado de obra va a obras; el de almacén, a almacenes activos.")
-    @ApiResponse(responseCode = "201", description = "Asignación creada")
+    @ApiResponse(responseCode = "201", description = "Asignación creada",
+            content = @Content(schema = @Schema(implementation = AssignmentResource.class),
+                    examples = @ExampleObject(value = OrganizationApiExamples.ASSIGNMENT)))
     @ApiResponse(responseCode = "400", description = "El rol del usuario no corresponde al tipo de lugar",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @ApiResponse(responseCode = "404", description = "Usuario, obra o almacén inexistentes o de otra organización",
@@ -61,29 +66,36 @@ class AssignmentsController {
     @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Listar asignaciones (vigentes y terminadas)",
             description = "El administrador ve todas; cada encargado, solo las suyas.")
+    @ApiResponse(responseCode = "200", description = "Asignaciones visibles para el usuario",
+            content = @Content(array = @ArraySchema(schema = @Schema(implementation = AssignmentResource.class)),
+                    examples = @ExampleObject(value = OrganizationApiExamples.ASSIGNMENTS)))
     List<AssignmentResource> list() {
         return assignments.list().stream().map(AssignmentResource::of).toList();
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("isAuthenticated()")
-    @Operation(summary = "Consultar una asignación")
-    @ApiResponse(responseCode = "200", description = "Asignación")
+    @Operation(summary = "Consultar una asignación", description = "El administrador consulta cualquiera; cada encargado, solo las suyas.")
+    @ApiResponse(responseCode = "200", description = "Asignación",
+            content = @Content(schema = @Schema(implementation = AssignmentResource.class),
+                    examples = @ExampleObject(value = OrganizationApiExamples.ASSIGNMENT)))
     @ApiResponse(responseCode = "404", description = "No existe, es de otra organización o de otro usuario",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
-    AssignmentResource get(@PathVariable UUID id) {
+    AssignmentResource get(@Parameter(description = "Id de la asignación", example = OrganizationApiExamples.ASSIGNMENT_ID) @PathVariable UUID id) {
         return AssignmentResource.of(assignments.get(id));
     }
 
     @PatchMapping("/{id}")
     @PreAuthorize("hasRole('ADMINISTRATOR')")
     @Operation(summary = "Terminar una asignación", description = "Envía active=false. La asignación queda en el historial.")
-    @ApiResponse(responseCode = "200", description = "Asignación terminada")
+    @ApiResponse(responseCode = "200", description = "Asignación terminada",
+            content = @Content(schema = @Schema(implementation = AssignmentResource.class),
+                    examples = @ExampleObject(value = OrganizationApiExamples.ASSIGNMENT_ENDED)))
     @ApiResponse(responseCode = "404", description = "No existe o es de otra organización",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @ApiResponse(responseCode = "409", description = "La asignación ya había terminado",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
-    AssignmentResource update(@PathVariable UUID id, @Valid @RequestBody UpdateAssignmentRequest request) {
+    AssignmentResource update(@Parameter(description = "Id de la asignación", example = OrganizationApiExamples.ASSIGNMENT_ID) @PathVariable UUID id, @Valid @RequestBody UpdateAssignmentRequest request) {
         return AssignmentResource.of(assignments.update(id, new AssignmentService.UpdateAssignment(request.active())));
     }
 

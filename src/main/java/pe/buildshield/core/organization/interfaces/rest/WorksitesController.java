@@ -1,6 +1,9 @@
 package pe.buildshield.core.organization.interfaces.rest;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -43,8 +46,11 @@ class WorksitesController {
 
     @PostMapping
     @PreAuthorize("hasRole('ADMINISTRATOR')")
-    @Operation(summary = "Registrar una obra")
-    @ApiResponse(responseCode = "201", description = "Obra registrada")
+    @Operation(summary = "Registrar una obra",
+            description = "Nombre, ubicación (dirección, distrito, ciudad y coordenadas opcionales) y fechas de inicio y fin.")
+    @ApiResponse(responseCode = "201", description = "Obra registrada",
+            content = @Content(schema = @Schema(implementation = WorksiteResource.class),
+                    examples = @ExampleObject(value = OrganizationApiExamples.WORKSITE)))
     @ApiResponse(responseCode = "400", description = "Datos inválidos; la fecha de fin no puede ser anterior a la de inicio",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @ApiResponse(responseCode = "403", description = "Solo el administrador registra obras",
@@ -59,29 +65,36 @@ class WorksitesController {
     @GetMapping
     @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Listar obras", description = "El administrador ve todas; el encargado de obra, solo las asignadas.")
+    @ApiResponse(responseCode = "200", description = "Obras visibles para el usuario",
+            content = @Content(array = @ArraySchema(schema = @Schema(implementation = WorksiteResource.class)),
+                    examples = @ExampleObject(value = OrganizationApiExamples.WORKSITES)))
     List<WorksiteResource> list() {
         return worksites.list().stream().map(WorksiteResource::of).toList();
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("isAuthenticated()")
-    @Operation(summary = "Consultar una obra")
-    @ApiResponse(responseCode = "200", description = "Obra")
+    @Operation(summary = "Consultar una obra", description = "Datos de una obra visible para el usuario.")
+    @ApiResponse(responseCode = "200", description = "Obra",
+            content = @Content(schema = @Schema(implementation = WorksiteResource.class),
+                    examples = @ExampleObject(value = OrganizationApiExamples.WORKSITE)))
     @ApiResponse(responseCode = "404", description = "No existe, es de otra organización o no está asignada al usuario",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
-    WorksiteResource get(@PathVariable UUID id) {
+    WorksiteResource get(@Parameter(description = "Id de la obra", example = OrganizationApiExamples.WORKSITE_ID) @PathVariable UUID id) {
         return WorksiteResource.of(worksites.get(id));
     }
 
     @PatchMapping("/{id}")
     @PreAuthorize("hasRole('ADMINISTRATOR')")
     @Operation(summary = "Modificar una obra", description = "Solo cambian los campos enviados.")
-    @ApiResponse(responseCode = "200", description = "Obra modificada")
+    @ApiResponse(responseCode = "200", description = "Obra modificada",
+            content = @Content(schema = @Schema(implementation = WorksiteResource.class),
+                    examples = @ExampleObject(value = OrganizationApiExamples.WORKSITE)))
     @ApiResponse(responseCode = "400", description = "Datos inválidos o rango de fechas inválido",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @ApiResponse(responseCode = "404", description = "No existe o es de otra organización",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
-    WorksiteResource update(@PathVariable UUID id, @Valid @RequestBody UpdateWorksiteRequest request) {
+    WorksiteResource update(@Parameter(description = "Id de la obra", example = OrganizationApiExamples.WORKSITE_ID) @PathVariable UUID id, @Valid @RequestBody UpdateWorksiteRequest request) {
         return WorksiteResource.of(worksites.update(id, new WorksiteService.UpdateWorksite(request.name(),
                 request.address(), request.district(), request.city(), request.latitude(), request.longitude(),
                 request.startDate(), request.endDate())));

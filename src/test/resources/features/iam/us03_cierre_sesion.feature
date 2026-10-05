@@ -1,4 +1,5 @@
 # language: es
+@US03
 Característica: US03 Cierre de sesión
   Como usuario autenticado
   quiero cerrar mi sesión

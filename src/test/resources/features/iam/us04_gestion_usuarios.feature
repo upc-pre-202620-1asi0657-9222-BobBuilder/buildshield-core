@@ -1,4 +1,5 @@
 # language: es
+@US04
 Característica: US04 Gestión de usuarios y roles
   Como administrador de la organización
   quiero crear usuarios con su rol

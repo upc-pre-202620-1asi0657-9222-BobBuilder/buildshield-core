@@ -1,4 +1,5 @@
 # language: es
+@US17
 Característica: US17 Asignación de personal a obras y almacenes
   Como administrador de la organización
   quiero asignar a cada encargado a sus obras o almacenes

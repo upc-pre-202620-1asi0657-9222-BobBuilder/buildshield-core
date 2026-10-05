@@ -123,10 +123,14 @@ Ejecuta:
 - pruebas unitarias de dominio y aplicación, y de arquitectura (ArchUnit);
 - pruebas de la capa web con la seguridad real (`RoleAuthorizationTest`, `JwtAuthenticationFilterTest`);
 - pruebas de integración (`*IT`) con PostgreSQL y RabbitMQ de Testcontainers;
-- los escenarios de aceptación de `src/test/resources/features` con Cucumber (`CucumberIT`; reporte en `target/cucumber-report.html`);
+- los escenarios de aceptación de `src/test/resources/features` con Cucumber por HTTP real contra el Core en un puerto aleatorio (`CucumberIT`; reporte en `target/cucumber-report.html` y `target/cucumber.json`). Cada `.feature` lleva la etiqueta de su historia (`@US01` … `@US21`);
 - el control de cobertura de JaCoCo (≥ 80 % de líneas en `domain` y `application`; reporte en `target/site/jacoco/index.html`).
 
 El perfil `test` usa un par de claves RSA **solo de prueba** (`src/test/resources/application-test.yml`), que no se incluye en el jar.
+
+## Documentación
+- Resumen del Sprint 1, pruebas, cobertura y criterios por historia: [docs/sprint-1](docs/sprint-1/README.md).
+- Colección Postman con el flujo del sprint: [docs/postman](docs/postman).
 
 ## Ramas
 GitFlow: `main`, `develop`, `feature/*`, `release/*`, `hotfix/*`. Commits con Conventional Commits.

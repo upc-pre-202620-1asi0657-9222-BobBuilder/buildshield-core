@@ -24,6 +24,7 @@ management:
       show-details: never
 
 springdoc:
+  default-produces-media-type: application/json
   api-docs:
     path: /api/v1/api-docs
 

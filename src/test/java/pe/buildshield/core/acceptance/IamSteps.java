@@ -8,7 +8,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
-import org.springframework.test.web.servlet.MvcResult;
 import pe.buildshield.core.acceptance.CucumberSpringConfiguration.CapturingEmailPort;
 import pe.buildshield.core.iam.domain.model.Role;
 import pe.buildshield.core.support.MutableClock;
@@ -22,8 +21,8 @@ import java.util.Map;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static pe.buildshield.core.acceptance.ApiRequest.get;
+import static pe.buildshield.core.acceptance.ApiRequest.post;
 
 /** Pasos de las historias US01 a US05 y pasos comunes de respuesta. */
 public class IamSteps {
@@ -108,18 +107,18 @@ public class IamSteps {
     /** Verificación aparte: no reemplaza la sesión del escenario. */
     @Entonces("{string} puede iniciar sesión con la contraseña {string} como {string}")
     public void canSignInAs(String email, String password, String roleName) throws Exception {
-        MvcResult response = session.perform(post("/api/v1/auth/sign-in"),
+        ApiResponse response = session.perform(post("/api/v1/auth/sign-in"),
                 Map.of("email", email, "password", password), null);
-        assertThat(response.getResponse().getStatus()).isEqualTo(200);
+        assertThat(response.status()).isEqualTo(200);
         Jwt jwt = jwtDecoder.decode(session.read(response).path("accessToken").asText());
         assertThat(jwt.getClaimAsString("role")).isEqualTo(role(roleName));
     }
 
     @Entonces("{string} no puede iniciar sesión con la contraseña {string}")
     public void cannotSignIn(String email, String password) throws Exception {
-        MvcResult response = session.perform(post("/api/v1/auth/sign-in"),
+        ApiResponse response = session.perform(post("/api/v1/auth/sign-in"),
                 Map.of("email", email, "password", password), null);
-        assertThat(response.getResponse().getStatus()).isEqualTo(401);
+        assertThat(response.status()).isEqualTo(401);
     }
 
     @Entonces("recibo un token de acceso válido por {int} minutos y un token de renovación")
@@ -145,8 +144,8 @@ public class IamSteps {
     @Entonces("el token de renovación anterior ya no permite renovar la sesión")
     public void previousRefreshTokenIsUseless() throws Exception {
         String token = session.previousRefreshToken() != null ? session.previousRefreshToken() : session.refreshToken();
-        MvcResult response = session.perform(post("/api/v1/auth/refresh"), Map.of("refreshToken", token), null);
-        assertThat(response.getResponse().getStatus()).isEqualTo(401);
+        ApiResponse response = session.perform(post("/api/v1/auth/refresh"), Map.of("refreshToken", token), null);
+        assertThat(response.status()).isEqualTo(401);
         assertThat(session.read(response).path("code").asText()).isEqualTo("INVALID_REFRESH_TOKEN");
     }
 

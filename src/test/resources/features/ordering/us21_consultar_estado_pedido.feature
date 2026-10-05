@@ -1,4 +1,5 @@
 # language: es
+@US21
 Característica: US21 Consultar el estado de un pedido
   Como encargado de obra
   quiero ver en qué estado está mi pedido y cuánto falta por material

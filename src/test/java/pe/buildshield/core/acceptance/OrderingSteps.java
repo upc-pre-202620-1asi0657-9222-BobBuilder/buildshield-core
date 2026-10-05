@@ -6,7 +6,6 @@ import io.cucumber.java.es.Cuando;
 import io.cucumber.java.es.Dado;
 import io.cucumber.java.es.Entonces;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.test.web.servlet.MvcResult;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -15,8 +14,8 @@ import java.util.Map;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static pe.buildshield.core.acceptance.ApiRequest.get;
+import static pe.buildshield.core.acceptance.ApiRequest.post;
 
 /** Pasos de las historias US18, US20 y US21 (módulo ordering). */
 public class OrderingSteps {
@@ -121,8 +120,8 @@ public class OrderingSteps {
     }
 
     private JsonNode order(String name) throws Exception {
-        MvcResult response = session.perform(get("/api/v1/orders/" + session.id(name)), null, session.accessToken());
-        assertThat(response.getResponse().getStatus()).as("consultar pedido %s", name).isEqualTo(200);
+        ApiResponse response = session.perform(get("/api/v1/orders/" + session.id(name)), null, session.accessToken());
+        assertThat(response.status()).as("consultar pedido %s", name).isEqualTo(200);
         return session.read(response);
     }
 }

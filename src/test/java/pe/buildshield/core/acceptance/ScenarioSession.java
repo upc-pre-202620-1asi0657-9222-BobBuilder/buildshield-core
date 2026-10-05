@@ -3,10 +3,10 @@ package pe.buildshield.core.acceptance;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.http.MediaType;
-import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.MvcResult;
-import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
+import org.springframework.web.client.RestClient;
 
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -16,56 +16,65 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * Estado de un escenario compartido entre las clases de pasos: sesión del usuario actual, última
  * respuesta y los identificadores de lo creado, por nombre. Tiene scope de escenario.
+ * <p>
+ * Las peticiones van por HTTP real al Core levantado en un puerto aleatorio.
  */
 public class ScenarioSession {
 
-    private final MockMvc mvc;
+    private final RestClient http;
     private final ObjectMapper json;
 
     private String accessToken;
     private String refreshToken;
     private String previousRefreshToken;
-    private MvcResult lastResponse;
+    private ApiResponse lastResponse;
 
     /** Identificadores por nombre visible: obras, almacenes, materiales (por SKU) y usuarios (por correo). */
     private final Map<String, UUID> ids = new HashMap<>();
 
-    public ScenarioSession(MockMvc mvc, ObjectMapper json) {
-        this.mvc = mvc;
+    public ScenarioSession(String baseUrl, ObjectMapper json) {
         this.json = json;
+        // JDK HttpClient: admite PATCH. Ningún código de estado se trata como error: lo verifica cada paso.
+        this.http = RestClient.builder()
+                .baseUrl(baseUrl)
+                .requestFactory(new JdkClientHttpRequestFactory())
+                .defaultStatusHandler(status -> true, (request, response) -> { })
+                .build();
     }
 
     /** Envía la petición con el token de la sesión actual (si hay) y la guarda como última respuesta. */
-    public MvcResult send(MockHttpServletRequestBuilder request, Object body) throws Exception {
+    public ApiResponse send(ApiRequest request, Object body) throws Exception {
         lastResponse = perform(request, body, accessToken);
         return lastResponse;
     }
 
     /** Envía sin usar ni modificar la sesión ni la última respuesta. */
-    public MvcResult perform(MockHttpServletRequestBuilder request, Object body, String bearer) throws Exception {
+    public ApiResponse perform(ApiRequest request, Object body, String bearer) throws Exception {
+        RestClient.RequestBodySpec spec = http.method(request.method()).uri(request.pathAndQuery());
         if (body != null) {
-            request.contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(body));
+            spec.contentType(MediaType.APPLICATION_JSON).body(json.writeValueAsString(body));
         }
         if (bearer != null) {
-            request.header("Authorization", "Bearer " + bearer);
+            spec.header("Authorization", "Bearer " + bearer);
         }
-        return mvc.perform(request).andReturn();
+        return spec.exchange((req, response) -> new ApiResponse(response.getStatusCode().value(),
+                new String(response.getBody().readAllBytes(), StandardCharsets.UTF_8)));
     }
 
     public int status() {
-        return lastResponse.getResponse().getStatus();
+        return lastResponse.status();
     }
 
     public JsonNode body() throws Exception {
         return read(lastResponse);
     }
 
-    public JsonNode read(MvcResult result) throws Exception {
-        return json.readTree(result.getResponse().getContentAsString());
+    public JsonNode read(ApiResponse response) throws Exception {
+        return json.readTree(response.body());
     }
 
-    public void expectStatus(int expected) throws Exception {
-        assertThat(status()).as("respuesta: %s", lastResponse.getResponse().getContentAsString()).isEqualTo(expected);
+    public void expectStatus(int expected) {
+        assertThat(status()).as("respuesta: %s", lastResponse.body()).isEqualTo(expected);
     }
 
     public UUID id(String name) {
@@ -104,7 +113,7 @@ public class ScenarioSession {
         previousRefreshToken = value;
     }
 
-    public void lastResponse(MvcResult value) {
+    public void lastResponse(ApiResponse value) {
         lastResponse = value;
     }
 

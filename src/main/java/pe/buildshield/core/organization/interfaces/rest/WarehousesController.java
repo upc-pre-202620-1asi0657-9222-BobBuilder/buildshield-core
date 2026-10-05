@@ -1,6 +1,9 @@
 package pe.buildshield.core.organization.interfaces.rest;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -42,8 +45,11 @@ class WarehousesController {
 
     @PostMapping
     @PreAuthorize("hasRole('ADMINISTRATOR')")
-    @Operation(summary = "Registrar un almacén o centro de acopio")
-    @ApiResponse(responseCode = "201", description = "Registrado y activo")
+    @Operation(summary = "Registrar un almacén o centro de acopio",
+            description = "Nombre, tipo (WAREHOUSE o COLLECTION_CENTER) y dirección. Queda activo.")
+    @ApiResponse(responseCode = "201", description = "Registrado y activo",
+            content = @Content(schema = @Schema(implementation = WarehouseResource.class),
+                    examples = @ExampleObject(value = OrganizationApiExamples.WAREHOUSE)))
     @ApiResponse(responseCode = "400", description = "Datos inválidos",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @ApiResponse(responseCode = "403", description = "Solo el administrador registra almacenes",
@@ -58,17 +64,22 @@ class WarehousesController {
     @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Listar almacenes",
             description = "El administrador ve todos; el encargado de almacén, los asignados; el encargado de obra, los activos.")
+    @ApiResponse(responseCode = "200", description = "Almacenes visibles para el usuario",
+            content = @Content(array = @ArraySchema(schema = @Schema(implementation = WarehouseResource.class)),
+                    examples = @ExampleObject(value = OrganizationApiExamples.WAREHOUSES)))
     List<WarehouseResource> list() {
         return warehouses.list().stream().map(WarehouseResource::of).toList();
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("isAuthenticated()")
-    @Operation(summary = "Consultar un almacén")
-    @ApiResponse(responseCode = "200", description = "Almacén")
+    @Operation(summary = "Consultar un almacén", description = "Datos de un almacén visible para el usuario, activo o desactivado.")
+    @ApiResponse(responseCode = "200", description = "Almacén",
+            content = @Content(schema = @Schema(implementation = WarehouseResource.class),
+                    examples = @ExampleObject(value = OrganizationApiExamples.WAREHOUSE)))
     @ApiResponse(responseCode = "404", description = "No existe, es de otra organización o el usuario no tiene acceso",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
-    WarehouseResource get(@PathVariable UUID id) {
+    WarehouseResource get(@Parameter(description = "Id del almacén", example = OrganizationApiExamples.WAREHOUSE_ID) @PathVariable UUID id) {
         return WarehouseResource.of(warehouses.get(id));
     }
 
@@ -76,10 +87,12 @@ class WarehousesController {
     @PreAuthorize("hasRole('ADMINISTRATOR')")
     @Operation(summary = "Modificar, desactivar o reactivar un almacén",
             description = "Solo cambian los campos enviados. active=false lo desactiva; active=true lo reactiva.")
-    @ApiResponse(responseCode = "200", description = "Almacén modificado")
+    @ApiResponse(responseCode = "200", description = "Almacén modificado",
+            content = @Content(schema = @Schema(implementation = WarehouseResource.class),
+                    examples = @ExampleObject(value = OrganizationApiExamples.WAREHOUSE)))
     @ApiResponse(responseCode = "404", description = "No existe o es de otra organización",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
-    WarehouseResource update(@PathVariable UUID id, @Valid @RequestBody UpdateWarehouseRequest request) {
+    WarehouseResource update(@Parameter(description = "Id del almacén", example = OrganizationApiExamples.WAREHOUSE_ID) @PathVariable UUID id, @Valid @RequestBody UpdateWarehouseRequest request) {
         return WarehouseResource.of(warehouses.update(id, new WarehouseService.UpdateWarehouse(
                 request.name(), request.type(), request.address(), request.active())));
     }

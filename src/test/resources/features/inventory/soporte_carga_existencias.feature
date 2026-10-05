@@ -1,4 +1,5 @@
 # language: es
+@soporte
 Característica: Carga y consulta de existencias por almacén
   Como encargado de almacén
   quiero registrar las entradas de material a mi almacén

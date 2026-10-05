@@ -1,6 +1,7 @@
 package pe.buildshield.core.iam.interfaces.rest;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -51,7 +52,9 @@ class AuthController {
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "Registrar una organización y su administrador",
             description = "Crea la organización y su usuario administrador en una sola transacción.")
-    @ApiResponse(responseCode = "201", description = "Organización y administrador creados")
+    @ApiResponse(responseCode = "201", description = "Organización y administrador creados",
+            content = @Content(schema = @Schema(implementation = SignUpResponse.class),
+                    examples = @ExampleObject(value = IamApiExamples.SIGN_UP)))
     @ApiResponse(responseCode = "400", description = "Datos inválidos (RUC, correo o contraseña)",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @ApiResponse(responseCode = "409", description = "RUC o correo ya registrados",
@@ -65,7 +68,9 @@ class AuthController {
     @PostMapping("/sign-in")
     @PreAuthorize("permitAll()")
     @Operation(summary = "Iniciar sesión", description = "Devuelve un token de acceso de 15 minutos y un token de renovación.")
-    @ApiResponse(responseCode = "200", description = "Sesión iniciada")
+    @ApiResponse(responseCode = "200", description = "Sesión iniciada",
+            content = @Content(schema = @Schema(implementation = TokenResponse.class),
+                    examples = @ExampleObject(value = IamApiExamples.TOKENS)))
     @ApiResponse(responseCode = "401", description = "Correo o contraseña incorrectos",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     TokenResponse signIn(@Valid @RequestBody SignInRequest request) {
@@ -76,7 +81,9 @@ class AuthController {
     @PreAuthorize("permitAll()")
     @Operation(summary = "Renovar la sesión",
             description = "Entrega tokens nuevos; el token de renovación usado queda revocado (rotación).")
-    @ApiResponse(responseCode = "200", description = "Sesión renovada")
+    @ApiResponse(responseCode = "200", description = "Sesión renovada",
+            content = @Content(schema = @Schema(implementation = TokenResponse.class),
+                    examples = @ExampleObject(value = IamApiExamples.TOKENS)))
     @ApiResponse(responseCode = "401", description = "Token de renovación inválido, vencido o revocado",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     TokenResponse refresh(@Valid @RequestBody RefreshRequest request) {
