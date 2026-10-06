@@ -3,6 +3,8 @@ package pe.buildshield.core.ordering.application;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import pe.buildshield.core.inventory.InsufficientStockException;
+import pe.buildshield.core.inventory.StockService;
 import pe.buildshield.core.shared.error.ConflictException;
 import pe.buildshield.core.shared.error.ResourceNotFoundException;
 import pe.buildshield.core.shared.error.ValidationException;
@@ -31,6 +33,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -47,10 +50,12 @@ class OrderServiceTest {
     private static final UUID CENTRAL = UUID.randomUUID();
     private static final UUID CEMENT = UUID.randomUUID();
     private static final UUID ORDER = UUID.randomUUID();
+    private static final UUID LINE = UUID.randomUUID();
 
     private final OrderRepository orders = mock(OrderRepository.class);
     private final OrganizationContextFacade organization = mock(OrganizationContextFacade.class);
-    private final OrderService service = new OrderService(orders, organization, Clock.fixed(NOW, ZoneOffset.UTC), audit);
+    private final StockService stock = mock(StockService.class);
+    private final OrderService service = new OrderService(orders, organization, stock, Clock.fixed(NOW, ZoneOffset.UTC), audit);
 
     @BeforeEach
     void site() {
@@ -134,6 +139,18 @@ class OrderServiceTest {
         assertThat(view.status()).isEqualTo(OrderStatus.IN_REVIEW);
         assertThat(view.decidedBy()).isEqualTo(ROSA);
         assertThat(view.decidedAt()).isEqualTo(NOW);
+        verify(stock).reserve(eq(CENTRAL), eq(CEMENT), eq(new BigDecimal("50.000")), eq(ORDER), eq(LINE));
+    }
+
+    @Test
+    void approval_fails_when_stock_cannot_be_reserved() {
+        givenStoredOrder(OrderStatus.REGISTERED);
+        as(ROSA, "WAREHOUSE_MANAGER");
+        when(stock.reserve(any(), any(), any(), any(), any())).thenThrow(
+                new InsufficientStockException(CENTRAL, CEMENT, BigDecimal.ONE, new BigDecimal("50")));
+
+        assertThatThrownBy(() -> service.approve(ORDER)).isInstanceOf(InsufficientStockException.class)
+                .hasFieldOrPropertyWithValue("code", "INSUFFICIENT_STOCK");
     }
 
     @Test
@@ -214,7 +231,8 @@ class OrderServiceTest {
 
     private static Order storedOrder(OrderStatus status) {
         return Order.restore(ORDER, TORRE, CENTRAL, JORGE, null, NOW,
-                List.of(OrderLine.request(CEMENT, "CEM-001", "BAG", new BigDecimal("50"))), status, null, null, null, 0L);
+                List.of(OrderLine.restore(LINE, CEMENT, "CEM-001", "BAG", new BigDecimal("50"), BigDecimal.ZERO,
+                        BigDecimal.ZERO, BigDecimal.ZERO)), status, null, null, null, 0L);
     }
 
     private static Order withId(Order order) {

@@ -18,6 +18,7 @@ Característica: US20 Aprobar o rechazar pedido
     Y que asigné a "jorge@andina.pe" a la obra "Torre Norte"
     Y que asigné a "rosa@andina.pe" al almacén "Almacén Central"
     Y que asigné a "maria@andina.pe" al almacén "Almacén Callao"
+    Y que el almacén "Almacén Central" tiene "100" del material "CEM-001"
     Y que "jorge@andina.pe" inició sesión con la contraseña "Obra12345"
     Y que creé el pedido "P1" para la obra "Torre Norte" al almacén "Almacén Central" con:
       | material | cantidad |
@@ -58,3 +59,23 @@ Característica: US20 Aprobar o rechazar pedido
     Dado que "maria@andina.pe" inició sesión con la contraseña "Almacen123"
     Cuando apruebo el pedido "P1"
     Entonces la operación es rechazada con estado 404
+
+  Escenario: Al aprobar se reserva lo solicitado en el almacén de origen
+    Dado que "rosa@andina.pe" inició sesión con la contraseña "Almacen123"
+    Cuando apruebo el pedido "P1"
+    Entonces la respuesta tiene estado 200
+    Y el stock disponible del material "CEM-001" en el almacén "Almacén Central" es "50"
+    Y el stock reservado del material "CEM-001" en el almacén "Almacén Central" es "50"
+
+  Escenario: No se aprueba un pedido sin stock suficiente y nada cambia
+    Dado que "jorge@andina.pe" inició sesión con la contraseña "Obra12345"
+    Y que creé el pedido "P2" para la obra "Torre Norte" al almacén "Almacén Central" con:
+      | material | cantidad |
+      | CEM-001  | 60       |
+    Y que "rosa@andina.pe" inició sesión con la contraseña "Almacen123"
+    Y que aprobé el pedido "P1"
+    Cuando apruebo el pedido "P2"
+    Entonces la operación es rechazada con estado 409 y código "INSUFFICIENT_STOCK"
+    Y el pedido "P2" está en estado "Registrado"
+    Y el stock disponible del material "CEM-001" en el almacén "Almacén Central" es "50"
+    Y el stock reservado del material "CEM-001" en el almacén "Almacén Central" es "50"

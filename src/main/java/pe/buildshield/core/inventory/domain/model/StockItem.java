@@ -27,4 +27,16 @@ public record StockItem(UUID id, UUID locationId, UUID materialId, BigDecimal av
     public BigDecimal availableAfterDeducting(Quantity quantity) {
         return availableQty.subtract(quantity.value());
     }
+
+    public boolean hasReserved(Quantity quantity) {
+        return reservedQty.compareTo(quantity.value()) >= 0;
+    }
+
+    public BigDecimal reservedAfterReserving(Quantity quantity) {
+        return reservedQty.add(quantity.value());
+    }
+
+    public BigDecimal reservedAfterConsuming(Quantity quantity) {
+        return reservedQty.subtract(quantity.value());
+    }
 }

@@ -58,6 +58,12 @@ public class OrderingSteps {
         session.send(post("/api/v1/orders/" + session.id(name) + "/approve"), null);
     }
 
+    @Dado("que aprobé el pedido {string}")
+    public void approved(String name) throws Exception {
+        approve(name);
+        session.expectStatus(200);
+    }
+
     @Cuando("rechazo el pedido {string} con el motivo {string}")
     public void reject(String name, String reason) throws Exception {
         session.send(post("/api/v1/orders/" + session.id(name) + "/reject"), Map.of("reason", reason));
