@@ -32,6 +32,12 @@ public class ScenarioSession {
     /** Identificadores por nombre visible: obras, almacenes, materiales (por SKU) y usuarios (por correo). */
     private final Map<String, UUID> ids = new HashMap<>();
 
+    /** Últimos tokens (acceso y renovación) de cada usuario que inició sesión, por correo. */
+    private final Map<String, String[]> sessions = new HashMap<>();
+
+    /** Claves de idempotencia por nombre, para repetir una operación con la misma clave. */
+    private final Map<String, String> keys = new HashMap<>();
+
     public ScenarioSession(String baseUrl, ObjectMapper json) {
         this.json = json;
         // JDK HttpClient: admite PATCH. Ningún código de estado se trata como error: lo verifica cada paso.
@@ -128,5 +134,24 @@ public class ScenarioSession {
 
     public void put(String name, UUID id) {
         ids.put(name, id);
+    }
+
+    public void rememberSession(String email, String access, String refresh) {
+        sessions.put(email, new String[]{access, refresh});
+    }
+
+    /** [token de acceso, token de renovación] del último inicio de sesión de ese correo. */
+    public String[] sessionOf(String email) {
+        String[] tokens = sessions.get(email);
+        assertThat(tokens).as("%s no inició sesión en el escenario", email).isNotNull();
+        return tokens;
+    }
+
+    public String key(String name) {
+        return keys.computeIfAbsent(name, ignored -> UUID.randomUUID().toString());
+    }
+
+    public ApiResponse last() {
+        return lastResponse;
     }
 }
