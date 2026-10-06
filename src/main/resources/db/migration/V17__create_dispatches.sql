@@ -8,7 +8,7 @@ CREATE TABLE dispatch.dispatches (
     worksite_id      UUID         NOT NULL,
     type             VARCHAR(10)  NOT NULL,
     status           VARCHAR(15)  NOT NULL,
-    manifest_code    VARCHAR(20)  NOT NULL,
+    manifest_code    VARCHAR(30)  NOT NULL,
     carrier_name     VARCHAR(150),
     carrier_document VARCHAR(20),
     plate            VARCHAR(10),

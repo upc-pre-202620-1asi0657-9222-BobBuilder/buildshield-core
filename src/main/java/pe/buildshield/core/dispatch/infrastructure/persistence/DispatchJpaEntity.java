@@ -47,7 +47,7 @@ public class DispatchJpaEntity extends AuditableAbstractAggregateRoot<DispatchJp
     @Column(name = "status", nullable = false, length = 15)
     private DispatchStatus status;
 
-    @Column(name = "manifest_code", nullable = false, length = 20, updatable = false)
+    @Column(name = "manifest_code", nullable = false, length = 30, updatable = false)
     private String manifestCode;
 
     @Column(name = "carrier_name", length = 150)

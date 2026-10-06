@@ -17,7 +17,8 @@ public class HttpTestSession {
     public HttpTestSession(int port, ObjectMapper json) { this.baseUrl = "http://127.0.0.1:" + port; this.json = json; }
 
     public Reply call(String method, String path, Object body, String bearer) throws Exception {
-        UUID key = method.equals("POST") && (path.startsWith("/api/v1/orders") || path.equals("/api/v1/stock/entries"))
+        UUID key = method.equals("POST") && (path.startsWith("/api/v1/orders") || path.equals("/api/v1/stock/entries")
+                || path.startsWith("/api/v1/dispatches") || path.startsWith("/api/v1/receptions"))
                 ? UUID.randomUUID() : null;
         return call(method, path, body, bearer, key);
     }
