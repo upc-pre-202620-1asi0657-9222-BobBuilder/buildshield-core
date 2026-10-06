@@ -1,5 +1,6 @@
 package pe.buildshield.core.dispatch.application;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -62,6 +63,7 @@ public class DispatchService {
     private final Clock clock;
     private final RandomGenerator random;
 
+    @Autowired
     public DispatchService(DispatchRepository dispatches, OrderingFacade ordering, StockService stock,
             OrganizationContextFacade organization, EvidenceStorage evidence, ManifestQrCode qrCode, AuditTrail audit,
             Clock clock) {
