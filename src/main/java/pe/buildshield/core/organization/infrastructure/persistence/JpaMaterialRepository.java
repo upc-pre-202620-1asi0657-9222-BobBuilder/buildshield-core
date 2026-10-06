@@ -5,6 +5,7 @@ import pe.buildshield.core.organization.domain.model.Material;
 import pe.buildshield.core.organization.domain.model.MaterialRepository;
 import pe.buildshield.core.organization.domain.model.Sku;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -22,6 +23,14 @@ class JpaMaterialRepository implements MaterialRepository {
     @Override
     public Optional<Material> findById(UUID id) {
         return jpa.findById(id).map(MaterialJpaEntity::toDomain);
+    }
+
+    @Override
+    public List<Material> findAllById(Collection<UUID> ids) {
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        return jpa.findAllById(ids).stream().map(MaterialJpaEntity::toDomain).toList();
     }
 
     @Override
