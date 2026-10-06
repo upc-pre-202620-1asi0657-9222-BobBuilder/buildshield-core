@@ -1,0 +1,2982 @@
+{
+  "info": {
+    "name": "BuildShield Core - Sprint 2",
+    "description": "Flujo completo del Sprint 2 sobre el del Sprint 1: registro, usuarios, obra, almacén, material, asignaciones, carga de stock, pedido, aprobación con reserva (RF40), despacho parcial (US22, US23), transportista (US30), pesaje de salida (US27), salida con consumo de la reserva (RF41), manifiesto con QR (US24), recepción y cotejo (US35), conformidad idempotente (US37, QAS10), estado del pedido (US21), desactivación de usuarios (US04) y auditoría. Ejecutar las carpetas en orden; cada petición guarda en variables de la colección los tokens e ids que usan las siguientes. El RUC, los correos y el SKU se generan en cada corrida para poder repetirla.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "runId",
+      "value": ""
+    },
+    {
+      "key": "adminPassword",
+      "value": "Segura123"
+    },
+    {
+      "key": "siteManagerPassword",
+      "value": "Obra12345"
+    },
+    {
+      "key": "warehouseManagerPassword",
+      "value": "Almacen123"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Registro de la organización (US01)",
+      "item": [
+        {
+          "name": "Registrar organización y administrador",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Datos nuevos en cada corrida: RUC, correos y SKU no se repiten.",
+                  "const runId = Date.now().toString().slice(-9);",
+                  "pm.collectionVariables.set(\"runId\", runId);",
+                  "pm.collectionVariables.set(\"ruc\", \"20\" + runId);",
+                  "pm.collectionVariables.set(\"adminEmail\", \"admin.\" + runId + \"@andina.pe\");",
+                  "pm.collectionVariables.set(\"siteManagerEmail\", \"obra.\" + runId + \"@andina.pe\");",
+                  "pm.collectionVariables.set(\"warehouseManagerEmail\", \"almacen.\" + runId + \"@andina.pe\");",
+                  "pm.collectionVariables.set(\"sku\", \"CEM-\" + runId);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set(\"organizationId\", body.organizationId);",
+                  "pm.collectionVariables.set(\"adminId\", body.administratorId);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/sign-up",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "sign-up"
+              ]
+            },
+            "description": "Crea la organización (RUC de 11 dígitos) y su administrador en una transacción.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ruc\": \"{{ruc}}\",\n  \"legalName\": \"Constructora Andina {{runId}} SAC\",\n  \"adminFullName\": \"Ana Torres\",\n  \"adminEmail\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Registrar el mismo RUC otra vez (409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 409\", function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Código RUC_ALREADY_REGISTERED\", function () {",
+                  "    pm.expect(body.code).to.eql(\"RUC_ALREADY_REGISTERED\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/sign-up",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "sign-up"
+              ]
+            },
+            "description": "El RUC es único.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ruc\": \"{{ruc}}\",\n  \"legalName\": \"Otra empresa SAC\",\n  \"adminFullName\": \"Otra Persona\",\n  \"adminEmail\": \"otra.{{runId}}@andina.pe\",\n  \"password\": \"{{adminPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Inicio de sesión del administrador (US02)",
+      "item": [
+        {
+          "name": "Iniciar sesión (administrador)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set(\"adminToken\", body.accessToken);",
+                  "pm.test(\"Entrega token Bearer\", function () {",
+                  "    pm.expect(body.tokenType).to.eql(\"Bearer\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/sign-in",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "sign-in"
+              ]
+            },
+            "description": "US02. Guarda el token de acceso de 15 minutos.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Usuarios (US04)",
+      "item": [
+        {
+          "name": "Crear encargado de obra",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set(\"siteManagerId\", body.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Jorge Huamán\",\n  \"email\": \"{{siteManagerEmail}}\",\n  \"role\": \"SITE_MANAGER\",\n  \"password\": \"{{siteManagerPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Crear encargado de almacén",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set(\"warehouseManagerId\", body.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Rosa Quispe\",\n  \"email\": \"{{warehouseManagerEmail}}\",\n  \"role\": \"WAREHOUSE_MANAGER\",\n  \"password\": \"{{warehouseManagerPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Listar usuarios",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Tres usuarios en la organización\", function () {",
+                  "    pm.expect(body.length).to.eql(3);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Obra, almacén y material (US14, US15, US16)",
+      "item": [
+        {
+          "name": "Registrar obra",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set(\"worksiteId\", body.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/worksites",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "worksites"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Torre Norte\",\n  \"address\": \"Av. Javier Prado 123\",\n  \"district\": \"San Isidro\",\n  \"city\": \"Lima\",\n  \"latitude\": -12.0931,\n  \"longitude\": -77.0465,\n  \"startDate\": \"2026-11-01\",\n  \"endDate\": \"2027-06-30\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Registrar almacén",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set(\"warehouseId\", body.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/warehouses",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "warehouses"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Almacén Central\",\n  \"type\": \"WAREHOUSE\",\n  \"address\": \"Av. Argentina 2500, Callao\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Registrar material",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set(\"materialId\", body.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/materials",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "materials"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sku\": \"{{sku}}\",\n  \"name\": \"Cemento Portland tipo I\",\n  \"unit\": \"BAG\",\n  \"wasteTolerancePercent\": 2.5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Asignaciones (US17)",
+      "item": [
+        {
+          "name": "Asignar encargado de obra a la obra",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/assignments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "assignments"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{siteManagerId}}\",\n  \"siteType\": \"WORKSITE\",\n  \"siteId\": \"{{worksiteId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Asignar encargado de almacén al almacén",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/assignments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "assignments"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{warehouseManagerId}}\",\n  \"siteType\": \"WAREHOUSE\",\n  \"siteId\": \"{{warehouseId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Carga de stock",
+      "item": [
+        {
+          "name": "Iniciar sesión (encargado de almacén)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set(\"warehouseManagerToken\", body.accessToken);",
+                  "pm.test(\"Entrega token Bearer\", function () {",
+                  "    pm.expect(body.tokenType).to.eql(\"Bearer\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/sign-in",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "sign-in"
+              ]
+            },
+            "description": "US02. Guarda el token de acceso de 15 minutos.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{warehouseManagerEmail}}\",\n  \"password\": \"{{warehouseManagerPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Registrar entrada de material",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Saldo de 500\", function () {",
+                  "    pm.expect(Number(body.availableQty)).to.eql(500);",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Conservar esta clave para reintentos; borrar la variable de colección solo para una intención nueva.",
+                  "if (!pm.collectionVariables.get(\"operation_key_registrar_entrada_de_material\")) {",
+                  "  pm.collectionVariables.set(\"operation_key_registrar_entrada_de_material\", pm.variables.replaceIn(\"{{$guid}}\"));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{operation_key_registrar_entrada_de_material}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/stock/entries",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "stock",
+                "entries"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{warehouseManagerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"warehouseId\": \"{{warehouseId}}\",\n  \"materialId\": \"{{materialId}}\",\n  \"quantity\": 500,\n  \"note\": \"Guía 001-2345\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "\nIdempotency-Key obligatoria. Repetir con la misma clave y datos recupera el resultado; borrar la variable operation_key_registrar_entrada_de_material para iniciar otra operación."
+          }
+        },
+        {
+          "name": "Consultar stock del almacén",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Un material con 500 disponibles\", function () {",
+                  "    pm.expect(body.length).to.eql(1);",
+                  "    pm.expect(Number(body[0].availableQty)).to.eql(500);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/stock?warehouseId={{warehouseId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "stock"
+              ],
+              "query": [
+                {
+                  "key": "warehouseId",
+                  "value": "{{warehouseId}}"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{warehouseManagerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. Pedido (US18)",
+      "item": [
+        {
+          "name": "Iniciar sesión (encargado de obra)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set(\"siteManagerToken\", body.accessToken);",
+                  "pm.test(\"Entrega token Bearer\", function () {",
+                  "    pm.expect(body.tokenType).to.eql(\"Bearer\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/sign-in",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "sign-in"
+              ]
+            },
+            "description": "US02. Guarda el token de acceso de 15 minutos.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{siteManagerEmail}}\",\n  \"password\": \"{{siteManagerPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Crear pedido",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set(\"orderId\", body.id);",
+                  "pm.test(\"Queda Registrado\", function () {",
+                  "    pm.expect(body.statusLabel).to.eql(\"Registrado\");",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Conservar esta clave para reintentos; borrar la variable de colección solo para una intención nueva.",
+                  "if (!pm.collectionVariables.get(\"operation_key_crear_pedido\")) {",
+                  "  pm.collectionVariables.set(\"operation_key_crear_pedido\", pm.variables.replaceIn(\"{{$guid}}\"));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{operation_key_crear_pedido}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "orders"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{siteManagerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"worksiteId\": \"{{worksiteId}}\",\n  \"warehouseId\": \"{{warehouseId}}\",\n  \"notes\": \"Vaciado de losa del piso 3\",\n  \"lines\": [\n    {\n      \"materialId\": \"{{materialId}}\",\n      \"quantity\": 50\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "\nIdempotency-Key obligatoria. Repetir con la misma clave y datos recupera el resultado; borrar la variable operation_key_crear_pedido para iniciar otra operación."
+          }
+        }
+      ]
+    },
+    {
+      "name": "8. Aprobación con reserva de stock (US20, RF40)",
+      "item": [
+        {
+          "name": "Aprobar pedido",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Pasa a EnRevision\", function () {",
+                  "    pm.expect(body.statusLabel).to.eql(\"EnRevision\");",
+                  "});",
+                  "pm.collectionVariables.set(\"orderLineId\", body.lines[0].id);",
+                  "pm.test(\"La línea expone su id\", function () {",
+                  "    pm.expect(body.lines[0].id).to.be.a(\"string\");",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Conservar esta clave para reintentos; borrar la variable de colección solo para una intención nueva.",
+                  "if (!pm.collectionVariables.get(\"operation_key_aprobar_pedido\")) {",
+                  "  pm.collectionVariables.set(\"operation_key_aprobar_pedido\", pm.variables.replaceIn(\"{{$guid}}\"));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{operation_key_aprobar_pedido}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/orders/{{orderId}}/approve",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "orders",
+                "{{orderId}}",
+                "approve"
+              ]
+            },
+            "description": "US20 y RF40: lo aprueba el encargado del almacén de origen y se reservan las 50 bolsas.\nIdempotency-Key obligatoria. Repetir con la misma clave y datos recupera el resultado; borrar la variable operation_key_aprobar_pedido para iniciar otra operación.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{warehouseManagerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Aprobar otra vez (409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 409\", function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Transición no permitida\", function () {",
+                  "    pm.expect(body.code).to.eql(\"INVALID_ORDER_TRANSITION\");",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Conservar esta clave para reintentos; borrar la variable de colección solo para una intención nueva.",
+                  "if (!pm.collectionVariables.get(\"operation_key_aprobar_otra_vez_409\")) {",
+                  "  pm.collectionVariables.set(\"operation_key_aprobar_otra_vez_409\", pm.variables.replaceIn(\"{{$guid}}\"));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{operation_key_aprobar_otra_vez_409}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/orders/{{orderId}}/approve",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "orders",
+                "{{orderId}}",
+                "approve"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{warehouseManagerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "\nIdempotency-Key obligatoria. Repetir con la misma clave y datos recupera el resultado; borrar la variable operation_key_aprobar_otra_vez_409 para iniciar otra operación."
+          }
+        },
+        {
+          "name": "Ver la reserva en el stock",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test(\"450 disponibles y 50 reservados\", function () {",
+                  "    pm.expect(Number(body[0].availableQty)).to.eql(450);",
+                  "    pm.expect(Number(body[0].reservedQty)).to.eql(50);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/stock?warehouseId={{warehouseId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "stock"
+              ],
+              "query": [
+                {
+                  "key": "warehouseId",
+                  "value": "{{warehouseId}}"
+                }
+              ]
+            },
+            "description": "Aprobar pasa lo solicitado de disponible a reservado.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{warehouseManagerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "9. Despacho parcial (US22, US23)",
+      "item": [
+        {
+          "name": "Despachar 30 de 50",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set(\"dispatchId\", body.id);",
+                  "pm.collectionVariables.set(\"manifestCode\", body.manifestCode);",
+                  "pm.test(\"Preparado, parcial y con código de manifiesto\", function () {",
+                  "    pm.expect(body.statusLabel).to.eql(\"Preparado\");",
+                  "    pm.expect(body.typeLabel).to.eql(\"Parcial\");",
+                  "    pm.expect(body.manifestCode).to.match(/^MAN-\\d{8}-[A-Z0-9]{8}$/);",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Conservar esta clave para reintentos; borrar la variable de colección solo para una intención nueva.",
+                  "if (!pm.collectionVariables.get(\"operation_key_despachar_30_de_50\")) {",
+                  "  pm.collectionVariables.set(\"operation_key_despachar_30_de_50\", pm.variables.replaceIn(\"{{$guid}}\"));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{operation_key_despachar_30_de_50}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/dispatches",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "dispatches"
+              ]
+            },
+            "description": "US22: despacho de una línea del pedido aprobado; US23: el resto queda pendiente.\nIdempotency-Key obligatoria. Repetir con la misma clave y datos recupera el resultado; borrar la variable operation_key_despachar_30_de_50 para iniciar otra operación.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{warehouseManagerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderId\": \"{{orderId}}\",\n  \"lines\": [\n    {\n      \"orderLineId\": \"{{orderLineId}}\",\n      \"quantity\": 30\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Despachar más de lo pendiente (409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 409\", function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Código DISPATCH_EXCEEDS_PENDING\", function () {",
+                  "    pm.expect(body.code).to.eql(\"DISPATCH_EXCEEDS_PENDING\");",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Conservar esta clave para reintentos; borrar la variable de colección solo para una intención nueva.",
+                  "if (!pm.collectionVariables.get(\"operation_key_despachar_mas_de_lo_pendiente_409\")) {",
+                  "  pm.collectionVariables.set(\"operation_key_despachar_mas_de_lo_pendiente_409\", pm.variables.replaceIn(\"{{$guid}}\"));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{operation_key_despachar_mas_de_lo_pendiente_409}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/dispatches",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "dispatches"
+              ]
+            },
+            "description": "Quedan 20 pendientes.\nIdempotency-Key obligatoria. Repetir con la misma clave y datos recupera el resultado; borrar la variable operation_key_despachar_mas_de_lo_pendiente_409 para iniciar otra operación.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{warehouseManagerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderId\": \"{{orderId}}\",\n  \"lines\": [\n    {\n      \"orderLineId\": \"{{orderLineId}}\",\n      \"quantity\": 21\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Pedido parcialmente atendido",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test(\"30 despachados y 20 pendientes\", function () {",
+                  "    pm.expect(body.statusLabel).to.eql(\"ParcialmenteAtendido\");",
+                  "    pm.expect(Number(body.lines[0].dispatched)).to.eql(30);",
+                  "    pm.expect(Number(body.lines[0].pending)).to.eql(20);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/orders/{{orderId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "orders",
+                "{{orderId}}"
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{siteManagerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Listar despachos del pedido",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Un despacho\", function () {",
+                  "    pm.expect(body.length).to.eql(1);",
+                  "    pm.expect(body[0].id).to.eql(pm.collectionVariables.get(\"dispatchId\"));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/dispatches?orderId={{orderId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "dispatches"
+              ],
+              "query": [
+                {
+                  "key": "orderId",
+                  "value": "{{orderId}}"
+                }
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{warehouseManagerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "10. Transportista y pesaje de salida (US30, US27)",
+      "item": [
+        {
+          "name": "Salir sin transportista (409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 409\", function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Código CARRIER_REQUIRED\", function () {",
+                  "    pm.expect(body.code).to.eql(\"CARRIER_REQUIRED\");",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Conservar esta clave para reintentos; borrar la variable de colección solo para una intención nueva.",
+                  "if (!pm.collectionVariables.get(\"operation_key_salir_sin_transportista_409\")) {",
+                  "  pm.collectionVariables.set(\"operation_key_salir_sin_transportista_409\", pm.variables.replaceIn(\"{{$guid}}\"));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{operation_key_salir_sin_transportista_409}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/dispatches/{{dispatchId}}/depart",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "dispatches",
+                "{{dispatchId}}",
+                "depart"
+              ]
+            },
+            "description": "Falta el transportista y el pesaje.\nIdempotency-Key obligatoria. Repetir con la misma clave y datos recupera el resultado; borrar la variable operation_key_salir_sin_transportista_409 para iniciar otra operación.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{warehouseManagerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Registrar transportista",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Placa en mayúsculas\", function () {",
+                  "    pm.expect(body.carrier.plate).to.eql(\"ABC-123\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/dispatches/{{dispatchId}}/carrier",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "dispatches",
+                "{{dispatchId}}",
+                "carrier"
+              ]
+            },
+            "description": "US30: solo mientras el despacho está Preparado.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{warehouseManagerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"carrierName\": \"Transportes Rímac SAC\",\n  \"carrierDocument\": \"20555666777\",\n  \"plate\": \"abc-123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Registrar pesaje de salida",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Neto de 1500 kg\", function () {",
+                  "    pm.expect(Number(body.departureWeighing.netKg)).to.eql(1500);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/dispatches/{{dispatchId}}/departure-weighing",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "dispatches",
+                "{{dispatchId}}",
+                "departure-weighing"
+              ]
+            },
+            "description": "US27: neto = bruto - tara. Uno por despacho.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{warehouseManagerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"grossKg\": 2550.5,\n  \"tareKg\": 1050.5,\n  \"ticketPhotoUrl\": \"https://evidencias.buildshield.pe/tickets/ticket-0042.jpg\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Pesar otra vez (409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 409\", function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Código DEPARTURE_WEIGHING_ALREADY_RECORDED\", function () {",
+                  "    pm.expect(body.code).to.eql(\"DEPARTURE_WEIGHING_ALREADY_RECORDED\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/dispatches/{{dispatchId}}/departure-weighing",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "dispatches",
+                "{{dispatchId}}",
+                "departure-weighing"
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{warehouseManagerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"grossKg\": 2600,\n  \"tareKg\": 1000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "11. Salida y manifiesto (US24)",
+      "item": [
+        {
+          "name": "Despachar (salida del almacén)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test(\"En tránsito\", function () {",
+                  "    pm.expect(body.statusLabel).to.eql(\"EnTransito\");",
+                  "    pm.expect(body.departedAt).to.be.a(\"string\");",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Conservar esta clave para reintentos; borrar la variable de colección solo para una intención nueva.",
+                  "if (!pm.collectionVariables.get(\"operation_key_despachar_salida_del_almacen\")) {",
+                  "  pm.collectionVariables.set(\"operation_key_despachar_salida_del_almacen\", pm.variables.replaceIn(\"{{$guid}}\"));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{operation_key_despachar_salida_del_almacen}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/dispatches/{{dispatchId}}/depart",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "dispatches",
+                "{{dispatchId}}",
+                "depart"
+              ]
+            },
+            "description": "RF41: consume la reserva de lo despachado.\nIdempotency-Key obligatoria. Repetir con la misma clave y datos recupera el resultado; borrar la variable operation_key_despachar_salida_del_almacen para iniciar otra operación.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{warehouseManagerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "La reserva se consumió",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test(\"450 disponibles y 20 reservados\", function () {",
+                  "    pm.expect(Number(body[0].availableQty)).to.eql(450);",
+                  "    pm.expect(Number(body[0].reservedQty)).to.eql(20);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/stock?warehouseId={{warehouseId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "stock"
+              ],
+              "query": [
+                {
+                  "key": "warehouseId",
+                  "value": "{{warehouseId}}"
+                }
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{warehouseManagerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Manifiesto con QR",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Código, materiales y QR\", function () {",
+                  "    pm.expect(body.manifestCode).to.eql(pm.collectionVariables.get(\"manifestCode\"));",
+                  "    pm.expect(body.qrContent).to.eql(body.manifestCode);",
+                  "    pm.expect(body.qrCodePngBase64.length).to.be.above(100);",
+                  "    pm.expect(body.lines[0].sku).to.eql(pm.collectionVariables.get(\"sku\"));",
+                  "    pm.expect(body.carrier.name).to.eql(\"Transportes Rímac SAC\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/dispatches/{{dispatchId}}/manifest",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "dispatches",
+                "{{dispatchId}}",
+                "manifest"
+              ]
+            },
+            "description": "US24: lo ve también el encargado de la obra de destino.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{siteManagerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Despachos en tránsito a mis obras",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Incluye el despacho\", function () {",
+                  "    pm.expect(body.map(d => d.id)).to.include(pm.collectionVariables.get(\"dispatchId\"));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/dispatches?status=IN_TRANSIT",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "dispatches"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "IN_TRANSIT"
+                }
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{siteManagerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "12. Recepción y cotejo (US35)",
+      "item": [
+        {
+          "name": "Abrir la recepción",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set(\"receptionId\", body.id);",
+                  "pm.collectionVariables.set(\"receptionLineId\", body.lines[0].id);",
+                  "pm.test(\"En curso con una línea\", function () {",
+                  "    pm.expect(body.statusLabel).to.eql(\"EnCurso\");",
+                  "    pm.expect(body.lines.length).to.eql(1);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/receptions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "receptions"
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{siteManagerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dispatchId\": \"{{dispatchId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Abrir otra recepción del mismo despacho (409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 409\", function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Código RECEPTION_ALREADY_EXISTS\", function () {",
+                  "    pm.expect(body.code).to.eql(\"RECEPTION_ALREADY_EXISTS\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/receptions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "receptions"
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{siteManagerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dispatchId\": \"{{dispatchId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Confirmar sin registrar lo recibido (409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 409\", function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Código RECEPTION_INCOMPLETE\", function () {",
+                  "    pm.expect(body.code).to.eql(\"RECEPTION_INCOMPLETE\");",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Conservar esta clave para reintentos; borrar la variable de colección solo para una intención nueva.",
+                  "if (!pm.collectionVariables.get(\"operation_key_confirmar_sin_registrar_lo_recibido_409\")) {",
+                  "  pm.collectionVariables.set(\"operation_key_confirmar_sin_registrar_lo_recibido_409\", pm.variables.replaceIn(\"{{$guid}}\"));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{operation_key_confirmar_sin_registrar_lo_recibido_409}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/receptions/{{receptionId}}/confirm",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "receptions",
+                "{{receptionId}}",
+                "confirm"
+              ]
+            },
+            "description": "Idempotency-Key obligatoria. Repetir con la misma clave y datos recupera el resultado; borrar la variable operation_key_confirmar_sin_registrar_lo_recibido_409 para iniciar otra operación.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{siteManagerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Registrar lo recibido",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Merma de 1.67 %\", function () {",
+                  "    pm.expect(Number(body.lines[0].shrinkagePercent)).to.eql(1.67);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/receptions/{{receptionId}}/lines/{{receptionLineId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "receptions",
+                "{{receptionId}}",
+                "lines",
+                "{{receptionLineId}}"
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{siteManagerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"receivedQty\": 29.5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Cotejo",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Solicitado, despachado, recibido y tolerancia\", function () {",
+                  "    const line = body.lines[0];",
+                  "    pm.expect(Number(line.requested)).to.eql(50);",
+                  "    pm.expect(Number(line.dispatched)).to.eql(30);",
+                  "    pm.expect(Number(line.received)).to.eql(29.5);",
+                  "    pm.expect(Number(line.difference)).to.eql(0.5);",
+                  "    pm.expect(line.withinTolerance).to.eql(true);",
+                  "    pm.expect(body.complete).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/receptions/{{receptionId}}/comparison",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "receptions",
+                "{{receptionId}}",
+                "comparison"
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{siteManagerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "13. Conformidad (US37)",
+      "item": [
+        {
+          "name": "Dar conformidad",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set(\"confirmationBody\", pm.response.text());",
+                  "pm.test(\"Confirmada\", function () {",
+                  "    pm.expect(body.statusLabel).to.eql(\"Confirmada\");",
+                  "    pm.expect(body.confirmedAt).to.be.a(\"string\");",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Conservar esta clave para reintentos; borrar la variable de colección solo para una intención nueva.",
+                  "if (!pm.collectionVariables.get(\"operation_key_dar_conformidad\")) {",
+                  "  pm.collectionVariables.set(\"operation_key_dar_conformidad\", pm.variables.replaceIn(\"{{$guid}}\"));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{operation_key_dar_conformidad}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/receptions/{{receptionId}}/confirm",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "receptions",
+                "{{receptionId}}",
+                "confirm"
+              ]
+            },
+            "description": "QAS10: suma a la obra, actualiza el pedido y marca el despacho Recibido.\nIdempotency-Key obligatoria. Repetir con la misma clave y datos recupera el resultado; borrar la variable operation_key_dar_conformidad para iniciar otra operación.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{siteManagerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Repetir con la misma clave",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Misma respuesta reproducida\", function () {",
+                  "    pm.expect(pm.response.headers.get(\"Idempotent-Replayed\")).to.eql(\"true\");",
+                  "    pm.expect(pm.response.text()).to.eql(pm.collectionVariables.get(\"confirmationBody\"));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{operation_key_dar_conformidad}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/receptions/{{receptionId}}/confirm",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "receptions",
+                "{{receptionId}}",
+                "confirm"
+              ]
+            },
+            "description": "Usa la clave de \"Dar conformidad\": no se aplica dos veces.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{siteManagerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Confirmar con otra clave (409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 409\", function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Código RECEPTION_ALREADY_CONFIRMED\", function () {",
+                  "    pm.expect(body.code).to.eql(\"RECEPTION_ALREADY_CONFIRMED\");",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Conservar esta clave para reintentos; borrar la variable de colección solo para una intención nueva.",
+                  "if (!pm.collectionVariables.get(\"operation_key_confirmar_con_otra_clave_409\")) {",
+                  "  pm.collectionVariables.set(\"operation_key_confirmar_con_otra_clave_409\", pm.variables.replaceIn(\"{{$guid}}\"));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{operation_key_confirmar_con_otra_clave_409}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/receptions/{{receptionId}}/confirm",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "receptions",
+                "{{receptionId}}",
+                "confirm"
+              ]
+            },
+            "description": "Idempotency-Key obligatoria. Repetir con la misma clave y datos recupera el resultado; borrar la variable operation_key_confirmar_con_otra_clave_409 para iniciar otra operación.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{siteManagerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Pedido con lo despachado y lo recibido (US21)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Despachado 30, recibido 29.5, pendiente 20\", function () {",
+                  "    pm.expect(Number(body.lines[0].dispatched)).to.eql(30);",
+                  "    pm.expect(Number(body.lines[0].received)).to.eql(29.5);",
+                  "    pm.expect(Number(body.lines[0].pending)).to.eql(20);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/orders/{{orderId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "orders",
+                "{{orderId}}"
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{siteManagerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Despacho recibido",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Recibido\", function () {",
+                  "    pm.expect(body.statusLabel).to.eql(\"Recibido\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/dispatches/{{dispatchId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "dispatches",
+                "{{dispatchId}}"
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "14. Desactivar usuarios (US04)",
+      "item": [
+        {
+          "name": "El administrador no se desactiva (409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 409\", function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Código CANNOT_CHANGE_OWN_ACCOUNT\", function () {",
+                  "    pm.expect(body.code).to.eql(\"CANNOT_CHANGE_OWN_ACCOUNT\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/{{adminId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "{{adminId}}"
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"active\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Desactivar al encargado de almacén",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Inactivo\", function () {",
+                  "    pm.expect(body.active).to.eql(false);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/{{warehouseManagerId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "{{warehouseManagerId}}"
+              ]
+            },
+            "description": "Revoca sus sesiones: su token de acceso deja de valer.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"active\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Su token ya no vale (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 401\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Código TOKEN_REVOKED\", function () {",
+                  "    pm.expect(body.code).to.eql(\"TOKEN_REVOKED\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/dispatches/{{dispatchId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "dispatches",
+                "{{dispatchId}}"
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{warehouseManagerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "No inicia sesión estando inactivo (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 401\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "const body = pm.response.json();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/sign-in",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "sign-in"
+              ]
+            },
+            "description": "US02. Guarda el token de acceso de 15 minutos.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{warehouseManagerEmail}}\",\n  \"password\": \"{{warehouseManagerPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "15. Auditoría",
+      "item": [
+        {
+          "name": "Consultar historial de la empresa",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/audit/events?page=0&size=50",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "audit",
+                "events"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "0"
+                },
+                {
+                  "key": "size",
+                  "value": "50"
+                }
+              ]
+            },
+            "description": "Solo el administrador. Filtros opcionales resourceType y resourceId; size máximo 100."
+          }
+        },
+        {
+          "name": "Historial del despacho",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Creado, transportista, pesaje, salida y recepción\", function () {",
+                  "    const actions = body.map(e => e.action);",
+                  "    pm.expect(actions).to.include.members([\"DISPATCH_CREATED\", \"DISPATCH_CARRIER_ASSIGNED\", \"DEPARTURE_WEIGHING_RECORDED\", \"DISPATCH_DEPARTED\"]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/audit/events?resourceType=DISPATCH&resourceId={{dispatchId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "audit",
+                "events"
+              ],
+              "query": [
+                {
+                  "key": "resourceType",
+                  "value": "DISPATCH"
+                },
+                {
+                  "key": "resourceId",
+                  "value": "{{dispatchId}}"
+                }
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Conformidad auditada",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test(\"RECEPTION_CONFIRMED una vez\", function () {",
+                  "    pm.expect(body.filter(e => e.action === \"RECEPTION_CONFIRMED\").length).to.eql(1);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/audit/events?resourceType=RECEPTION&resourceId={{receptionId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "audit",
+                "events"
+              ],
+              "query": [
+                {
+                  "key": "resourceType",
+                  "value": "RECEPTION"
+                },
+                {
+                  "key": "resourceId",
+                  "value": "{{receptionId}}"
+                }
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Desactivación auditada",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test(\"USER_DEACTIVATED\", function () {",
+                  "    pm.expect(body.map(e => e.action)).to.include(\"USER_DEACTIVATED\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/audit/events?resourceType=USER&resourceId={{warehouseManagerId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "audit",
+                "events"
+              ],
+              "query": [
+                {
+                  "key": "resourceType",
+                  "value": "USER"
+                },
+                {
+                  "key": "resourceId",
+                  "value": "{{warehouseManagerId}}"
+                }
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
