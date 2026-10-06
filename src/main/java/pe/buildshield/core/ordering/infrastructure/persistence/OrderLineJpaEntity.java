@@ -62,6 +62,6 @@ public class OrderLineJpaEntity extends OrganizationScopedEntity {
     }
 
     OrderLine toDomain() {
-        return OrderLine.restore(materialId, sku, unit, requestedQty, dispatchedQty, cancelledQty, receivedQty);
+        return OrderLine.restore(id, materialId, sku, unit, requestedQty, dispatchedQty, cancelledQty, receivedQty);
     }
 }

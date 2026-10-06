@@ -1,5 +1,6 @@
 package pe.buildshield.core.ordering.domain.model;
 
+import pe.buildshield.core.shared.error.ConflictException;
 import pe.buildshield.core.shared.error.ErrorDetail;
 import pe.buildshield.core.shared.error.ValidationException;
 
@@ -19,7 +20,9 @@ import java.util.UUID;
 public class OrderLine {
 
     public static final int SCALE = 3;
+    public static final String DISPATCH_EXCEEDS_PENDING = "DISPATCH_EXCEEDS_PENDING";
 
+    private final UUID id;
     private final UUID materialId;
     private final String sku;
     private final String unit;
@@ -28,8 +31,9 @@ public class OrderLine {
     private BigDecimal cancelled;
     private BigDecimal received;
 
-    private OrderLine(UUID materialId, String sku, String unit, BigDecimal requested, BigDecimal dispatched,
+    private OrderLine(UUID id, UUID materialId, String sku, String unit, BigDecimal requested, BigDecimal dispatched,
             BigDecimal cancelled, BigDecimal received) {
+        this.id = id;
         this.materialId = Objects.requireNonNull(materialId, "materialId");
         this.sku = Objects.requireNonNull(sku, "sku");
         this.unit = Objects.requireNonNull(unit, "unit");
@@ -46,12 +50,18 @@ public class OrderLine {
     }
 
     public static OrderLine request(UUID materialId, String sku, String unit, BigDecimal requested) {
-        return new OrderLine(materialId, sku, unit, requested, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO);
+        return new OrderLine(null, materialId, sku, unit, requested, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO);
     }
 
     public static OrderLine restore(UUID materialId, String sku, String unit, BigDecimal requested,
             BigDecimal dispatched, BigDecimal cancelled, BigDecimal received) {
-        return new OrderLine(materialId, sku, unit, requested, dispatched, cancelled, received);
+        return new OrderLine(null, materialId, sku, unit, requested, dispatched, cancelled, received);
+    }
+
+    /** Línea guardada, con su identificador (los despachos la referencian por id). */
+    public static OrderLine restore(UUID id, UUID materialId, String sku, String unit, BigDecimal requested,
+            BigDecimal dispatched, BigDecimal cancelled, BigDecimal received) {
+        return new OrderLine(id, materialId, sku, unit, requested, dispatched, cancelled, received);
     }
 
     public BigDecimal pending() {
@@ -62,15 +72,20 @@ public class OrderLine {
         return pending().signum() == 0;
     }
 
-    /** Suma lo despachado; no puede superar lo pendiente. */
+    /** Suma lo despachado; no puede superar lo pendiente (409, el estado del pedido lo impide). */
     public void registerDispatch(BigDecimal quantity) {
+        dispatched = dispatched.add(checkDispatch(quantity));
+    }
+
+    /** Valida un despacho sin aplicarlo: cantidad positiva que no supera lo pendiente. */
+    public BigDecimal checkDispatch(BigDecimal quantity) {
         BigDecimal amount = positive(quantity, "quantity");
         if (amount.compareTo(pending()) > 0) {
-            throw new ValidationException("DISPATCH_EXCEEDS_PENDING",
+            throw new ConflictException(DISPATCH_EXCEEDS_PENDING,
                     "Se intenta despachar " + amount.toPlainString() + " y solo quedan " + pending().toPlainString(),
                     List.of(new ErrorDetail("quantity", "máximo " + pending().toPlainString())));
         }
-        dispatched = dispatched.add(amount);
+        return amount;
     }
 
     /** Suma lo recibido en obra; no puede superar lo despachado. */
@@ -100,6 +115,11 @@ public class OrderLine {
             throw new IllegalStateException("La cantidad " + field + " no puede ser negativa");
         }
         return value.setScale(SCALE, RoundingMode.HALF_UP);
+    }
+
+    /** {@code null} hasta que la línea se guarda. */
+    public UUID id() {
+        return id;
     }
 
     public UUID materialId() {
