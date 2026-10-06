@@ -14,6 +14,8 @@ import pe.buildshield.core.iam.domain.model.EmailAddress;
 import pe.buildshield.core.iam.domain.model.Role;
 import pe.buildshield.core.iam.domain.model.User;
 import pe.buildshield.core.iam.domain.model.UserRepository;
+import pe.buildshield.core.iam.domain.model.TokenRepositories.RefreshTokenRepository;
+import pe.buildshield.core.shared.error.ResourceNotFoundException;
 
 import java.sql.SQLException;
 import java.util.List;
@@ -35,11 +37,15 @@ class UserManagementServiceTest {
 
     private final UserRepository users = mock(UserRepository.class);
     private final PasswordEncoder encoder = mock(PasswordEncoder.class);
-    private final UserManagementService service = new UserManagementService(users, encoder, audit);
+    private final RefreshTokenRepository refreshTokens = mock(RefreshTokenRepository.class);
+    private static final java.time.Instant NOW = java.time.Instant.parse("2026-10-06T12:00:00Z");
+    private static final UUID ADMIN = UUID.randomUUID();
+    private final UserManagementService service = new UserManagementService(users, encoder, refreshTokens,
+            java.time.Clock.fixed(NOW, java.time.ZoneOffset.UTC), audit);
 
     @BeforeEach
     void admin() {
-        TenantContext.set(new TenantInfo(ORG, UUID.randomUUID(), "ADMINISTRATOR"));
+        TenantContext.set(new TenantInfo(ORG, ADMIN, "ADMINISTRATOR"));
         when(encoder.encode(anyString())).thenReturn("$2a$12$hash");
     }
 
@@ -113,5 +119,62 @@ class UserManagementServiceTest {
                 "Ana", Role.ADMINISTRATOR, "h", true, 0L)));
 
         assertThat(service.list()).extracting(UserManagementService.UserView::email).containsExactly("ana@andina.pe");
+    }
+
+    // ---------- US04: desactivar y cambiar el rol ----------
+
+    private static User stored(UUID id, Role role, boolean active) {
+        return User.restore(id, ORG, new EmailAddress("rosa@andina.pe"), "Rosa", role, "h", active, 1L);
+    }
+
+    @Test
+    void deactivating_a_user_revokes_its_sessions() {
+        UUID rosa = UUID.randomUUID();
+        when(users.findById(rosa)).thenReturn(java.util.Optional.of(stored(rosa, Role.WAREHOUSE_MANAGER, true)));
+        when(users.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        UserManagementService.UserView view = service.update(rosa, new UserManagementService.UpdateUserCommand(false, null));
+
+        assertThat(view.active()).isFalse();
+        verify(refreshTokens).revokeAllActive(rosa, NOW);
+        verify(audit).recorded(org.mockito.ArgumentMatchers.eq("USER_DEACTIVATED"), anyString(), any());
+    }
+
+    @Test
+    void changing_the_role_revokes_sessions_and_nothing_changes_without_differences() {
+        UUID rosa = UUID.randomUUID();
+        when(users.findById(rosa)).thenReturn(java.util.Optional.of(stored(rosa, Role.WAREHOUSE_MANAGER, true)));
+        when(users.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        assertThat(service.update(rosa, new UserManagementService.UpdateUserCommand(null, "SITE_MANAGER")).role())
+                .isEqualTo(Role.SITE_MANAGER);
+        verify(refreshTokens).revokeAllActive(rosa, NOW);
+
+        when(users.findById(rosa)).thenReturn(java.util.Optional.of(stored(rosa, Role.SITE_MANAGER, true)));
+        service.update(rosa, new UserManagementService.UpdateUserCommand(true, "SITE_MANAGER"));
+        verify(users, org.mockito.Mockito.times(1)).save(any());
+    }
+
+    @Test
+    void the_administrator_cannot_deactivate_itself_or_change_its_role() {
+        when(users.findById(ADMIN)).thenReturn(java.util.Optional.of(stored(ADMIN, Role.ADMINISTRATOR, true)));
+
+        assertThatThrownBy(() -> service.update(ADMIN, new UserManagementService.UpdateUserCommand(false, null)))
+                .isInstanceOf(ConflictException.class)
+                .hasFieldOrPropertyWithValue("code", UserManagementService.CANNOT_CHANGE_OWN_ACCOUNT);
+        assertThatThrownBy(() -> service.update(ADMIN, new UserManagementService.UpdateUserCommand(null, "SITE_MANAGER")))
+                .isInstanceOf(ConflictException.class);
+        verify(users, never()).save(any());
+    }
+
+    @Test
+    void update_requires_a_change_an_existing_user_and_a_valid_role() {
+        assertThatThrownBy(() -> service.update(UUID.randomUUID(), new UserManagementService.UpdateUserCommand(null, " ")))
+                .isInstanceOf(ValidationException.class).hasFieldOrPropertyWithValue("code", "EMPTY_UPDATE");
+        assertThatThrownBy(() -> service.update(UUID.randomUUID(), new UserManagementService.UpdateUserCommand(null, "gerente")))
+                .isInstanceOf(ValidationException.class);
+        when(users.findById(any())).thenReturn(java.util.Optional.empty());
+        assertThatThrownBy(() -> service.update(UUID.randomUUID(), new UserManagementService.UpdateUserCommand(false, null)))
+                .isInstanceOf(ResourceNotFoundException.class).hasFieldOrPropertyWithValue("code", "USER_NOT_FOUND");
     }
 }
