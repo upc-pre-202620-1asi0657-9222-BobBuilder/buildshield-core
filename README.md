@@ -23,6 +23,19 @@ Las configuraciones de `shared.config` se registran como autoconfiguración del 
 
 ## Módulo iam (US01–US05)
 
+Módulos y estado:
+
+| Módulo | Sprint | Historias |
+|---|---|---|
+| iam | 1 y 2 | US01 a US05 (US04 completa en el Sprint 2: desactivar y cambiar rol) |
+| organization | 1 | US14 a US17 |
+| inventory | 1 y 2 | Carga y consulta de stock; reservas al aprobar y consumo al despachar (RF40, RF41) |
+| ordering | 1 y 2 | US18, US20, US21 (despachado y recibido reales desde el Sprint 2) |
+| dispatch | 2 | US22, US23, US24, US27, US30 |
+| reception | 2 | US35, US37 |
+| audit | 1 y 2 | Historial de solo anexado |
+| subscription, notification | pendientes | Sprints 3 y 4 |
+
 | Método y ruta | Quién | Descripción |
 |---|---|---|
 | `POST /api/v1/auth/sign-up` | público | Crea la organización (RUC de 11 dígitos, único) y su administrador (correo único) en una transacción → 201 |
@@ -31,6 +44,7 @@ Las configuraciones de `shared.config` se registran como autoconfiguración del 
 | `POST /api/v1/auth/sign-out` | autenticado | Revoca el token de renovación y el token de acceso usado hasta que venza → 204 |
 | `POST /api/v1/users` | administrador | Crea un usuario de su organización (ADMINISTRATOR, WAREHOUSE_MANAGER, SITE_MANAGER) → 201 |
 | `GET /api/v1/users` | administrador | Usuarios de su organización → 200 |
+| `PATCH /api/v1/users/{id}` | administrador | `active=false` desactiva y `role` cambia el rol → 200. Revoca sus sesiones; sus tokens de acceso dejan de valer (401 `TOKEN_REVOKED`). No se desactiva ni cambia su propio rol (409 `CANNOT_CHANGE_OWN_ACCOUNT`) |
 | `POST /api/v1/auth/password-reset` | público | Envía un enlace válido 30 min, de un solo uso; misma respuesta exista o no el correo → 202 |
 | `POST /api/v1/auth/password-reset/confirm` | público | Cambia la contraseña y cierra las sesiones renovables → 204; enlace inválido → 400 |
 
@@ -72,13 +86,15 @@ Integración con otros módulos:
 | `POST /api/v1/stock/entries` | administrador o encargado asignado al almacén | Entrada de material (carga de existencias) → 201 con el saldo |
 | `GET /api/v1/stock?warehouseId=` | autenticado | Administrador: todos los almacenes; encargado de almacén: los suyos; encargado de obra: los activos |
 
-**Fachada pública `StockService`**, para otros módulos (despachos):
+**Fachada pública `StockService`**, para otros módulos (pedidos, despachos y recepciones):
+- `reserve(almacén, material, cantidad, pedido, línea)`: al aprobar un pedido pasa lo solicitado de disponible a reservado (RF40), con el mismo UPDATE condicionado por `version` y por lo disponible. Si no alcanza, `InsufficientStockException` (409 `INSUFFICIENT_STOCK`) sin efectos. Guarda la reserva en `inventory.stock_reservations` (una por línea de pedido).
+- `consumeReservation(almacén, material, cantidad, línea, referencia)`: al salir un despacho saca lo despachado de lo reservado (RF41). Nunca consume más de lo reservado (409 `RESERVATION_NOT_AVAILABLE`).
 - `add(almacén, material, cantidad)`: suma stock.
 - `deduct(almacén, material, cantidad)`: descuenta con un UPDATE condicionado por `version` y por la cantidad disponible.
   - Si otra operación cambió el ítem, reintenta hasta 3 veces.
   - Si no alcanza, lanza `InsufficientStockException` (409) **sin efectos**.
   - Se une a la transacción de quien llama.
-- Cada operación registra un movimiento en `inventory.stock_movements`.
+- Cada operación registra un movimiento en `inventory.stock_movements`: ENTRY, DEDUCTION, RESERVE y DISPATCH (RELEASE queda para la anulación del Sprint 3).
 - La restricción `CHECK (available_qty >= 0)` es la última defensa de QAS02.
 - `StockConcurrencyIntegrationTest` lo mide: dos hilos descuentan sin stock para ambos, 50 repeticiones; gana uno solo y el saldo nunca queda negativo.
 
@@ -88,14 +104,43 @@ Integración con otros módulos:
 |---|---|---|
 | `POST /api/v1/orders` | encargado de obra | Pedido para una obra asignada a un almacén activo → 201, Registrado |
 | `GET /api/v1/orders`, `/{id}` | autenticado | Administrador: todos; encargado de obra: los de sus obras; encargado de almacén: los de sus almacenes |
-| `POST /api/v1/orders/{id}/approve` | administrador o encargado del almacén de origen | Registrado → EnRevision |
+| `POST /api/v1/orders/{id}/approve` | administrador o encargado del almacén de origen | Registrado → EnRevision y reserva lo solicitado de cada línea; sin stock suficiente 409 `INSUFFICIENT_STOCK` y nada cambia |
 | `POST /api/v1/orders/{id}/reject` | administrador o encargado del almacén de origen | Registrado → Cancelado; `reason` obligatorio |
 
 - **Líneas:** cada una guarda solicitado, despachado, cancelado y recibido por separado. **Pendiente = solicitado − despachado − cancelado.** Las cantidades son mayores que cero y no hay materiales repetidos.
 - **Estados (patrón State):** Registrado → EnRevision → ParcialmenteAtendido → Atendido → Cerrado, y Cancelado. Una transición no permitida responde 409 `INVALID_ORDER_TRANSITION`.
-- **Pendiente para otros módulos:**
-  - "recibido" vale 0 hasta que exista el módulo reception (que lo actualizará en la misma transacción de la recepción);
-  - los despachos (`registerDispatch`) y el cierre los usará el módulo dispatch.
+- Cada línea expone su `id` (`lines[].id`): es el `orderLineId` que usan los despachos.
+- **Fachada `OrderingFacade`** para dispatch y reception: lee el pedido, suma lo despachado por línea (no supera lo pendiente: 409 `DISPATCH_EXCEEDS_PENDING`) y lo recibido. El pedido se guarda forzando su versión, así dos despachos simultáneos no se pisan (el segundo responde 409).
+
+## Módulo dispatch (US22, US23, US24, US27, US30)
+
+| Método y ruta | Quién | Descripción |
+|---|---|---|
+| `POST /api/v1/dispatches` | administrador o encargado del almacén de origen | Despacho de una o varias líneas de un pedido aprobado → 201, `PREPARED` (Preparado). Requiere `Idempotency-Key` |
+| `GET /api/v1/dispatches?orderId=&status=` | autenticado | Administrador: todos; encargado de almacén: los de sus almacenes; encargado de obra: los que van a sus obras |
+| `GET /api/v1/dispatches/{id}` | autenticado, según visibilidad | Estado, líneas, transportista y pesaje |
+| `PATCH /api/v1/dispatches/{id}/carrier` | administrador o encargado del almacén de origen | Transportista: nombre, documento y placa; solo en `PREPARED` |
+| `POST /api/v1/dispatches/{id}/departure-weighing` | administrador o encargado del almacén de origen | Bruto y tara en kg; neto > 0; uno por despacho; solo en `PREPARED` |
+| `POST /api/v1/dispatches/{id}/depart` | administrador o encargado del almacén de origen | `PREPARED` → `IN_TRANSIT`; exige transportista y pesaje; consume la reserva. Requiere `Idempotency-Key` |
+| `GET /api/v1/dispatches/{id}/manifest` | autenticado, según visibilidad | Manifiesto con código único, obra, almacén, materiales, transportista, pesaje y QR (PNG en base64) del código |
+
+- **Estados (patrón State):** `PREPARED` (Preparado) → `IN_TRANSIT` (EnTransito) → `RECEIVED` (Recibido); `CANCELLED` (Anulado) queda reservado para el Sprint 3.
+- **Tipo:** `COMPLETE` si con el despacho ya no queda nada pendiente del pedido; si no, `PARTIAL`. Un pedido admite varios despachos (US23).
+- **Manifiesto:** código `MAN-AAAAMMDD-XXXXXXXX` único (restricción de la tabla). El QR solo es un acceso rápido que codifica ese código.
+- **Evidencia:** la foto del ticket pasa por el puerto `EvidenceStorage`; el adaptador actual (`LocalEvidenceStorage`) valida y conserva la URL http(s), sin llamar a AWS.
+
+## Módulo reception (US35, US37)
+
+| Método y ruta | Quién | Descripción |
+|---|---|---|
+| `POST /api/v1/receptions` | administrador o encargado de la obra de destino | Abre la recepción de un despacho `IN_TRANSIT` → 201. Una por despacho: si ya existe, 409 `RECEPTION_ALREADY_EXISTS` con su id en los detalles |
+| `GET /api/v1/receptions/{id}` | administrador y encargados de la obra de destino y del almacén de origen | Estado y lo recibido por línea |
+| `PUT /api/v1/receptions/{id}/lines/{lineId}` | administrador o encargado de la obra de destino | Lo recibido (0 a lo despachado); se guarda de a poco mientras está en curso |
+| `GET /api/v1/receptions/{id}/comparison` | igual que el GET | Por material: solicitado, despachado, recibido, diferencia, merma % y si está dentro de la tolerancia |
+| `POST /api/v1/receptions/{id}/confirm` | administrador o encargado de la obra de destino | Conformidad: suma lo recibido al stock de la obra, lo registra en el pedido, marca la recepción `CONFIRMED` y el despacho `RECEIVED`, en una transacción. Requiere `Idempotency-Key`; otra clave responde 409 `RECEPTION_ALREADY_CONFIRMED` |
+
+- **Merma:** `(despachado - recibido) / despachado × 100`, con 2 decimales; dentro de la tolerancia si no la supera.
+- **Cotejo sin N+1:** usa un número fijo de consultas (recepción con sus líneas, pedido con sus líneas y los materiales de una vez), lo mide `DispatchReceptionFlowIT`.
 
 ## Ejecutar en local
 ```bash
@@ -110,6 +155,14 @@ export BUILDSHIELD_JWT_PUBLIC_KEY="$(cat ~/.buildshield/jwt-public.pem)"
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=local
 ```
 Salud: `GET http://localhost:8080/actuator/health`
+
+Con el jar ya construido (`./mvnw -DskipTests package`):
+```bash
+CORE_DB_USER=... CORE_DB_PASSWORD=... BUILDSHIELD_JWT_PRIVATE_KEY="$(cat ~/.buildshield/jwt-private.pem)" \
+BUILDSHIELD_JWT_PUBLIC_KEY="$(cat ~/.buildshield/jwt-public.pem)" \
+java -jar target/buildshield-core-1.1.0-SNAPSHOT.jar --spring.profiles.active=local
+npx newman run docs/postman/BuildShield-Sprint2.postman_collection.json -e docs/postman/BuildShield-local.postman_environment.json
+```
 
 | Variable | Perfil | Descripción |
 |---|---|---|
@@ -127,7 +180,7 @@ Ejecuta:
 - pruebas unitarias de dominio y aplicación, y de arquitectura (ArchUnit);
 - pruebas de la capa web con la seguridad real (`RoleAuthorizationTest`, `JwtAuthenticationFilterTest`);
 - pruebas de integración (`*IT`) con PostgreSQL de Testcontainers, incluidas las del kernel compartido, que usan una aplicación de prueba aparte (`pe.buildshield.testapp`, perfil `it`);
-- los escenarios de aceptación de `src/test/resources/features` con Cucumber por HTTP real contra el Core en un puerto aleatorio (`CucumberIT`; reporte en `target/cucumber-report.html` y `target/cucumber.json`). Cada `.feature` lleva la etiqueta de su historia (`@US01` … `@US21`);
+- los escenarios de aceptación de `src/test/resources/features` con Cucumber por HTTP real contra el Core en un puerto aleatorio (`CucumberIT`; reporte en `target/cucumber-report.html` y `target/cucumber.json`). Cada `.feature` lleva la etiqueta de su historia (`@US01` … `@US37`);
 - el control de cobertura de JaCoCo (≥ 80 % de líneas en `domain` y `application`; reporte en `target/site/jacoco/index.html`).
 
 El perfil `test` usa un par de claves RSA **solo de prueba** (`src/test/resources/application-test.yml`), que no se incluye en el jar.
@@ -139,7 +192,8 @@ El perfil `test` usa un par de claves RSA **solo de prueba** (`src/test/resource
 - Contratos, configuración y ejecución de pruebas: [backend-hardening.md](docs/backend-hardening.md).
 - Matriz técnica y evidencia medida: [verification](docs/verification/README.md).
 - Resumen del Sprint 1, pruebas, cobertura y criterios por historia: [docs/sprint-1](docs/sprint-1/README.md).
-- Colección Postman con el flujo del sprint: [docs/postman](docs/postman).
+- Resumen del Sprint 2 (despachos, recepciones, reservas y usuarios): [docs/sprint-2](docs/sprint-2/README.md).
+- Colecciones Postman con el flujo de cada sprint: [docs/postman](docs/postman) (`BuildShield-Sprint2.postman_collection.json` cubre el flujo completo).
 
 ## Ramas
 GitFlow: `main`, `develop`, `feature/*`, `release/*`, `hotfix/*`. Commits con Conventional Commits.

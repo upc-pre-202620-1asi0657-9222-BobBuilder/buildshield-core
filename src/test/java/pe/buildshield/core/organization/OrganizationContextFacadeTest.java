@@ -92,4 +92,17 @@ class OrganizationContextFacadeTest {
         assertThat(facade.isAssigned(user, ID)).isTrue();
         assertThat(facade.isAssigned(user, UUID.randomUUID())).isFalse();
     }
+
+    @Test
+    void finds_several_materials_in_one_query() {
+        Material cement = Material.restore(ID, new Sku("CEM-001"), "Cemento", UnitOfMeasure.BAG,
+                new WasteTolerance(new BigDecimal("2.5")), true, 0L);
+        when(materials.findAllById(any())).thenReturn(java.util.List.of(cement));
+
+        var found = facade.findMaterials(java.util.List.of(ID, ID));
+
+        assertThat(found).containsOnlyKeys(ID);
+        assertThat(found.get(ID).wasteTolerancePercent()).isEqualByComparingTo("2.5");
+        verify(materials).findAllById(java.util.Set.of(ID));
+    }
 }

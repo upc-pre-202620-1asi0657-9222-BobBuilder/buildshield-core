@@ -22,7 +22,12 @@ import pe.buildshield.core.iam.application.PasswordResetService;
 import pe.buildshield.core.iam.application.SignUpService;
 import pe.buildshield.core.iam.application.UserManagementService;
 import pe.buildshield.core.iam.domain.model.Role;
+import pe.buildshield.core.dispatch.application.DispatchService;
+import pe.buildshield.core.dispatch.domain.model.DispatchStatus;
+import pe.buildshield.core.dispatch.domain.model.DispatchType;
 import pe.buildshield.core.inventory.StockService;
+import pe.buildshield.core.reception.application.ReceptionService;
+import pe.buildshield.core.reception.domain.model.ReceptionStatus;
 import pe.buildshield.core.inventory.application.StockQueries;
 import pe.buildshield.core.ordering.application.OrderService;
 import pe.buildshield.core.ordering.domain.model.OrderStatus;
@@ -50,6 +55,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
@@ -81,6 +87,12 @@ class RoleAuthorizationTest {
             Map.entry("order", "{\"worksiteId\":\"00000000-0000-0000-0000-0000000000aa\",\"warehouseId\":\"00000000-0000-0000-0000-0000000000aa\",\"lines\":[{\"materialId\":\"00000000-0000-0000-0000-0000000000aa\",\"quantity\":5}]}"),
             Map.entry("reject", "{\"reason\":\"Sin transporte\"}"),
             Map.entry("stock-entry", "{\"warehouseId\":\"00000000-0000-0000-0000-0000000000aa\",\"materialId\":\"00000000-0000-0000-0000-0000000000aa\",\"quantity\":10}"),
+            Map.entry("dispatch", "{\"orderId\":\"00000000-0000-0000-0000-0000000000aa\",\"lines\":[{\"orderLineId\":\"00000000-0000-0000-0000-0000000000aa\",\"quantity\":5}]}"),
+            Map.entry("carrier", "{\"carrierName\":\"Transportes Rímac\",\"carrierDocument\":\"20555666777\",\"plate\":\"ABC-123\"}"),
+            Map.entry("weighing", "{\"grossKg\":2500,\"tareKg\":1000}"),
+            Map.entry("reception", "{\"dispatchId\":\"00000000-0000-0000-0000-0000000000aa\"}"),
+            Map.entry("reception-line", "{\"receivedQty\":4.5}"),
+            Map.entry("update-user", "{\"active\":false}"),
             Map.entry("create-user", "{\"fullName\":\"Rosa\",\"email\":\"rosa@andina.pe\",\"role\":\"WAREHOUSE_MANAGER\",\"password\":\"Almacen123\"}"));
 
     @MockitoBean
@@ -129,6 +141,12 @@ class RoleAuthorizationTest {
     @MockitoBean
     StockQueries stockQueries;
 
+    @MockitoBean
+    DispatchService dispatchService;
+
+    @MockitoBean
+    ReceptionService receptionService;
+
     @BeforeEach
     void stubServices() {
         when(signUpService.signUp(any())).thenReturn(new SignUpService.SignUpResult(UUID.randomUUID(), UUID.randomUUID()));
@@ -172,6 +190,29 @@ class RoleAuthorizationTest {
         when(stockQueries.registerEntry(any(), any(), any(), any())).thenReturn(
                 new StockService.StockLevel(ANY_ID, ANY_ID, BigDecimal.TEN, BigDecimal.ZERO));
         when(stockQueries.list(any())).thenReturn(List.of());
+        when(userManagementService.update(any(), any())).thenReturn(new UserManagementService.UserView(
+                ANY_ID, "rosa@andina.pe", "Rosa", Role.WAREHOUSE_MANAGER, false));
+        DispatchService.DispatchView dispatch = new DispatchService.DispatchView(ANY_ID, ANY_ID, ANY_ID, ANY_ID,
+                DispatchType.PARTIAL, DispatchStatus.PREPARED, "MAN-20261103-7KQ2M9XA", Instant.now(), null, null, null,
+                null, List.of());
+        when(dispatchService.create(any())).thenReturn(dispatch);
+        when(dispatchService.list(any(), any())).thenReturn(List.of(dispatch));
+        when(dispatchService.get(any())).thenReturn(dispatch);
+        when(dispatchService.assignCarrier(any(), any(), any(), any())).thenReturn(dispatch);
+        when(dispatchService.recordDepartureWeighing(any(), any(), any(), any())).thenReturn(dispatch);
+        when(dispatchService.depart(any())).thenReturn(dispatch);
+        when(dispatchService.manifest(any())).thenReturn(new DispatchService.ManifestView("MAN-20261103-7KQ2M9XA",
+                dispatch, ANY_ID, Instant.now(), new DispatchService.ManifestSite(ANY_ID, "Torre", "Av. 1"),
+                new DispatchService.ManifestSite(ANY_ID, "Central", "Av. 2"), List.of(), "iVBORw0KGgo=",
+                "MAN-20261103-7KQ2M9XA"));
+        ReceptionService.ReceptionView reception = new ReceptionService.ReceptionView(ANY_ID, ANY_ID, ANY_ID, ANY_ID,
+                ANY_ID, ReceptionStatus.IN_PROGRESS, null, null, List.of());
+        when(receptionService.start(any())).thenReturn(reception);
+        when(receptionService.get(any())).thenReturn(reception);
+        when(receptionService.recordLine(any(), any(), any())).thenReturn(reception);
+        when(receptionService.confirm(any())).thenReturn(reception);
+        when(receptionService.comparison(any())).thenReturn(new ReceptionService.ComparisonView(ANY_ID, ANY_ID, ANY_ID,
+                ReceptionStatus.IN_PROGRESS, false, false, List.of()));
     }
 
     @ParameterizedTest(name = "{0} {1} como {2} -> {3}")
@@ -284,12 +325,65 @@ class RoleAuthorizationTest {
             "POST , /api/v1/orders/00000000-0000-0000-0000-0000000000aa/reject, reject, SITE_MANAGER, 403",
             "POST , /api/v1/stock/entries, stock-entry, SITE_MANAGER, 403",
             "GET  , /api/v1/stock, , SITE_MANAGER, 200",
+            "POST, /api/v1/dispatches, dispatch, ANONYMOUS, 401",
+            "POST, /api/v1/dispatches, dispatch, ADMINISTRATOR, 201",
+            "POST, /api/v1/dispatches, dispatch, WAREHOUSE_MANAGER, 201",
+            "POST, /api/v1/dispatches, dispatch, SITE_MANAGER, 403",
+            "GET, /api/v1/dispatches, , ANONYMOUS, 401",
+            "GET, /api/v1/dispatches, , ADMINISTRATOR, 200",
+            "GET, /api/v1/dispatches, , WAREHOUSE_MANAGER, 200",
+            "GET, /api/v1/dispatches, , SITE_MANAGER, 200",
+            "GET, /api/v1/dispatches/00000000-0000-0000-0000-0000000000aa, , ANONYMOUS, 401",
+            "GET, /api/v1/dispatches/00000000-0000-0000-0000-0000000000aa, , ADMINISTRATOR, 200",
+            "GET, /api/v1/dispatches/00000000-0000-0000-0000-0000000000aa, , WAREHOUSE_MANAGER, 200",
+            "GET, /api/v1/dispatches/00000000-0000-0000-0000-0000000000aa, , SITE_MANAGER, 200",
+            "PATCH, /api/v1/dispatches/00000000-0000-0000-0000-0000000000aa/carrier, carrier, ANONYMOUS, 401",
+            "PATCH, /api/v1/dispatches/00000000-0000-0000-0000-0000000000aa/carrier, carrier, ADMINISTRATOR, 200",
+            "PATCH, /api/v1/dispatches/00000000-0000-0000-0000-0000000000aa/carrier, carrier, WAREHOUSE_MANAGER, 200",
+            "PATCH, /api/v1/dispatches/00000000-0000-0000-0000-0000000000aa/carrier, carrier, SITE_MANAGER, 403",
+            "POST, /api/v1/dispatches/00000000-0000-0000-0000-0000000000aa/departure-weighing, weighing, ANONYMOUS, 401",
+            "POST, /api/v1/dispatches/00000000-0000-0000-0000-0000000000aa/departure-weighing, weighing, ADMINISTRATOR, 200",
+            "POST, /api/v1/dispatches/00000000-0000-0000-0000-0000000000aa/departure-weighing, weighing, WAREHOUSE_MANAGER, 200",
+            "POST, /api/v1/dispatches/00000000-0000-0000-0000-0000000000aa/departure-weighing, weighing, SITE_MANAGER, 403",
+            "POST, /api/v1/dispatches/00000000-0000-0000-0000-0000000000aa/depart, , ANONYMOUS, 401",
+            "POST, /api/v1/dispatches/00000000-0000-0000-0000-0000000000aa/depart, , ADMINISTRATOR, 200",
+            "POST, /api/v1/dispatches/00000000-0000-0000-0000-0000000000aa/depart, , WAREHOUSE_MANAGER, 200",
+            "POST, /api/v1/dispatches/00000000-0000-0000-0000-0000000000aa/depart, , SITE_MANAGER, 403",
+            "GET, /api/v1/dispatches/00000000-0000-0000-0000-0000000000aa/manifest, , ANONYMOUS, 401",
+            "GET, /api/v1/dispatches/00000000-0000-0000-0000-0000000000aa/manifest, , ADMINISTRATOR, 200",
+            "GET, /api/v1/dispatches/00000000-0000-0000-0000-0000000000aa/manifest, , WAREHOUSE_MANAGER, 200",
+            "GET, /api/v1/dispatches/00000000-0000-0000-0000-0000000000aa/manifest, , SITE_MANAGER, 200",
+            "POST, /api/v1/receptions, reception, ANONYMOUS, 401",
+            "POST, /api/v1/receptions, reception, ADMINISTRATOR, 201",
+            "POST, /api/v1/receptions, reception, WAREHOUSE_MANAGER, 403",
+            "POST, /api/v1/receptions, reception, SITE_MANAGER, 201",
+            "GET, /api/v1/receptions/00000000-0000-0000-0000-0000000000aa, , ANONYMOUS, 401",
+            "GET, /api/v1/receptions/00000000-0000-0000-0000-0000000000aa, , ADMINISTRATOR, 200",
+            "GET, /api/v1/receptions/00000000-0000-0000-0000-0000000000aa, , WAREHOUSE_MANAGER, 200",
+            "GET, /api/v1/receptions/00000000-0000-0000-0000-0000000000aa, , SITE_MANAGER, 200",
+            "PUT, /api/v1/receptions/00000000-0000-0000-0000-0000000000aa/lines/00000000-0000-0000-0000-0000000000bb, reception-line, ANONYMOUS, 401",
+            "PUT, /api/v1/receptions/00000000-0000-0000-0000-0000000000aa/lines/00000000-0000-0000-0000-0000000000bb, reception-line, ADMINISTRATOR, 200",
+            "PUT, /api/v1/receptions/00000000-0000-0000-0000-0000000000aa/lines/00000000-0000-0000-0000-0000000000bb, reception-line, WAREHOUSE_MANAGER, 403",
+            "PUT, /api/v1/receptions/00000000-0000-0000-0000-0000000000aa/lines/00000000-0000-0000-0000-0000000000bb, reception-line, SITE_MANAGER, 200",
+            "GET, /api/v1/receptions/00000000-0000-0000-0000-0000000000aa/comparison, , ANONYMOUS, 401",
+            "GET, /api/v1/receptions/00000000-0000-0000-0000-0000000000aa/comparison, , ADMINISTRATOR, 200",
+            "GET, /api/v1/receptions/00000000-0000-0000-0000-0000000000aa/comparison, , WAREHOUSE_MANAGER, 200",
+            "GET, /api/v1/receptions/00000000-0000-0000-0000-0000000000aa/comparison, , SITE_MANAGER, 200",
+            "POST, /api/v1/receptions/00000000-0000-0000-0000-0000000000aa/confirm, , ANONYMOUS, 401",
+            "POST, /api/v1/receptions/00000000-0000-0000-0000-0000000000aa/confirm, , ADMINISTRATOR, 200",
+            "POST, /api/v1/receptions/00000000-0000-0000-0000-0000000000aa/confirm, , WAREHOUSE_MANAGER, 403",
+            "POST, /api/v1/receptions/00000000-0000-0000-0000-0000000000aa/confirm, , SITE_MANAGER, 200",
+            "PATCH, /api/v1/users/00000000-0000-0000-0000-0000000000bb, update-user, ANONYMOUS, 401",
+            "PATCH, /api/v1/users/00000000-0000-0000-0000-0000000000bb, update-user, ADMINISTRATOR, 200",
+            "PATCH, /api/v1/users/00000000-0000-0000-0000-0000000000bb, update-user, WAREHOUSE_MANAGER, 403",
+            "PATCH, /api/v1/users/00000000-0000-0000-0000-0000000000bb, update-user, SITE_MANAGER, 403",
     })
     void endpoint_is_allowed_only_for_its_roles(String method, String path, String body, String who, int expectedStatus)
             throws Exception {
         MockHttpServletRequestBuilder request = switch (method) {
             case "GET" -> get(path);
             case "PATCH" -> patch(path);
+            case "PUT" -> put(path);
             default -> post(path);
         };
         if (body != null) {

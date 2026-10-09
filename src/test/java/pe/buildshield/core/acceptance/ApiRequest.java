@@ -8,6 +8,7 @@ public final class ApiRequest {
 
     private final HttpMethod method;
     private final UriComponentsBuilder uri;
+    private String idempotencyKey;
 
     private ApiRequest(HttpMethod method, String path) {
         this.method = method;
@@ -24,6 +25,20 @@ public final class ApiRequest {
 
     public static ApiRequest patch(String path) {
         return new ApiRequest(HttpMethod.PATCH, path);
+    }
+
+    public static ApiRequest put(String path) {
+        return new ApiRequest(HttpMethod.PUT, path);
+    }
+
+    /** Usa esta clave de idempotencia en vez de una nueva. */
+    public ApiRequest idempotencyKey(String key) {
+        idempotencyKey = key;
+        return this;
+    }
+
+    String idempotencyKey() {
+        return idempotencyKey;
     }
 
     public ApiRequest param(String name, String value) {

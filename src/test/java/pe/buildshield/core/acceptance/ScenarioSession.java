@@ -32,6 +32,12 @@ public class ScenarioSession {
     /** Identificadores por nombre visible: obras, almacenes, materiales (por SKU) y usuarios (por correo). */
     private final Map<String, UUID> ids = new HashMap<>();
 
+    /** Últimos tokens (acceso y renovación) de cada usuario que inició sesión, por correo. */
+    private final Map<String, String[]> sessions = new HashMap<>();
+
+    /** Claves de idempotencia por nombre, para repetir una operación con la misma clave. */
+    private final Map<String, String> keys = new HashMap<>();
+
     public ScenarioSession(String baseUrl, ObjectMapper json) {
         this.json = json;
         // JDK HttpClient: admite PATCH. Ningún código de estado se trata como error: lo verifica cada paso.
@@ -54,15 +60,20 @@ public class ScenarioSession {
         if (body != null) {
             spec.contentType(MediaType.APPLICATION_JSON).body(json.writeValueAsString(body));
         }
-        if (request.method() == org.springframework.http.HttpMethod.POST &&
-                (request.pathAndQuery().startsWith("/api/v1/orders") || request.pathAndQuery().equals("/api/v1/stock/entries"))) {
+        if (request.idempotencyKey() != null) {
+            spec.header("Idempotency-Key", request.idempotencyKey());
+        } else if (request.method() == org.springframework.http.HttpMethod.POST &&
+                (request.pathAndQuery().startsWith("/api/v1/orders") || request.pathAndQuery().equals("/api/v1/stock/entries")
+                        || request.pathAndQuery().startsWith("/api/v1/dispatches")
+                        || request.pathAndQuery().startsWith("/api/v1/receptions"))) {
             spec.header("Idempotency-Key", UUID.randomUUID().toString());
         }
         if (bearer != null) {
             spec.header("Authorization", "Bearer " + bearer);
         }
         return spec.exchange((req, response) -> new ApiResponse(response.getStatusCode().value(),
-                new String(response.getBody().readAllBytes(), StandardCharsets.UTF_8)));
+                new String(response.getBody().readAllBytes(), StandardCharsets.UTF_8),
+                response.getHeaders().getFirst("Idempotent-Replayed")));
     }
 
     public int status() {
@@ -123,5 +134,24 @@ public class ScenarioSession {
 
     public void put(String name, UUID id) {
         ids.put(name, id);
+    }
+
+    public void rememberSession(String email, String access, String refresh) {
+        sessions.put(email, new String[]{access, refresh});
+    }
+
+    /** [token de acceso, token de renovación] del último inicio de sesión de ese correo. */
+    public String[] sessionOf(String email) {
+        String[] tokens = sessions.get(email);
+        assertThat(tokens).as("%s no inició sesión en el escenario", email).isNotNull();
+        return tokens;
+    }
+
+    public String key(String name) {
+        return keys.computeIfAbsent(name, ignored -> UUID.randomUUID().toString());
+    }
+
+    public ApiResponse last() {
+        return lastResponse;
     }
 }

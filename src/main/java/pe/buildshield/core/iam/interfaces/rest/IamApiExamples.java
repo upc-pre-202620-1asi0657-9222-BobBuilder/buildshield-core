@@ -27,6 +27,15 @@ final class IamApiExamples {
               "active": true
             }""";
 
+    static final String USER_DEACTIVATED = """
+            {
+              "id": "9c2d3e4f-5a6b-4c7d-8e9f-a0b1c2d3e4f5",
+              "email": "rosa@andina.pe",
+              "fullName": "Rosa Quispe",
+              "role": "WAREHOUSE_MANAGER",
+              "active": false
+            }""";
+
     static final String USERS = """
             [
               {

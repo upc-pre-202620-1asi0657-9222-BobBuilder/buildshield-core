@@ -14,10 +14,14 @@ import pe.buildshield.core.organization.domain.model.WorksiteRepository;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * Fachada pública del módulo organization para otros módulos del Core (pedidos, despachos,
@@ -56,6 +60,14 @@ public class OrganizationContextFacade {
     @Transactional(readOnly = true)
     public Optional<MaterialSnapshot> findMaterial(UUID materialId) {
         return materials.findById(materialId).map(MaterialSnapshot::of);
+    }
+
+    /** Varios materiales en una sola consulta (evita N+1 en manifiestos y cotejos), por id. */
+    @Transactional(readOnly = true)
+    public Map<UUID, MaterialSnapshot> findMaterials(Collection<UUID> materialIds) {
+        return materials.findAllById(Set.copyOf(materialIds)).stream()
+                .map(MaterialSnapshot::of)
+                .collect(Collectors.toUnmodifiableMap(MaterialSnapshot::id, Function.identity()));
     }
 
     /** El SKU no distingue mayúsculas. Un SKU con formato inválido no existe. */

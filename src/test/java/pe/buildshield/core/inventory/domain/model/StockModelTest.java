@@ -59,4 +59,29 @@ class StockModelTest {
         assertThat(new StockMovement(ID, StockMovement.Type.ENTRY, BigDecimal.TEN, BigDecimal.TEN, "Guía 1",
                 Instant.now()).type()).isEqualTo(StockMovement.Type.ENTRY);
     }
+
+    @Test
+    void reservation_tracks_what_remains_and_never_consumes_more_than_reserved() {
+        StockReservation reservation = StockReservation.reserve(ID, UUID.randomUUID(), UUID.randomUUID(),
+                Quantity.of("10"), Instant.parse("2026-10-06T12:00:00Z"));
+
+        assertThat(reservation.status()).isEqualTo(StockReservation.Status.RESERVED);
+        assertThat(reservation.remaining()).isEqualByComparingTo("10");
+        assertThat(reservation.canConsume(Quantity.of("10"))).isTrue();
+        assertThat(reservation.canConsume(Quantity.of("10.001"))).isFalse();
+        assertThatThrownBy(() -> new StockReservation(ID, ID, ID, ID, BigDecimal.ONE, BigDecimal.TEN,
+                StockReservation.Status.RESERVED, Instant.now())).isInstanceOf(IllegalStateException.class);
+        assertThat(new StockReservation(ID, ID, ID, ID, BigDecimal.ONE, BigDecimal.ZERO,
+                StockReservation.Status.CONSUMED, Instant.now()).canConsume(Quantity.of("1"))).isFalse();
+    }
+
+    @Test
+    void stock_item_knows_what_is_reserved() {
+        StockItem item = new StockItem(ID, UUID.randomUUID(), UUID.randomUUID(), BigDecimal.TEN, new BigDecimal("5"), 1);
+
+        assertThat(item.hasReserved(Quantity.of("5"))).isTrue();
+        assertThat(item.hasReserved(Quantity.of("5.001"))).isFalse();
+        assertThat(item.reservedAfterReserving(Quantity.of("2"))).isEqualByComparingTo("7");
+        assertThat(item.reservedAfterConsuming(Quantity.of("2"))).isEqualByComparingTo("3");
+    }
 }

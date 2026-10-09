@@ -49,7 +49,8 @@ public class AuditTrail {
         String type = segments.length > 3 ? switch (segments[3]) {
             case "orders" -> "ORDER"; case "worksites" -> "WORKSITE"; case "warehouses" -> "WAREHOUSE";
             case "materials" -> "MATERIAL"; case "assignments" -> "ASSIGNMENT"; case "users" -> "USER";
-            case "stock" -> "STOCK_ITEM"; case "audit" -> "AUDIT_EVENT"; default -> "RESOURCE";
+            case "stock" -> "STOCK_ITEM"; case "audit" -> "AUDIT_EVENT";
+            case "dispatches" -> "DISPATCH"; case "receptions" -> "RECEPTION"; default -> "RESOURCE";
         } : "RESOURCE";
         UUID resource = null;
         if (segments.length > 4) {

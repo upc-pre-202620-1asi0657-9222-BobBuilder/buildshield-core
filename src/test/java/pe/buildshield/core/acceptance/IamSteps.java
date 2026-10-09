@@ -95,6 +95,7 @@ public class IamSteps {
             session.accessToken(session.body().path("accessToken").asText());
             session.refreshToken(session.body().path("refreshToken").asText());
             session.previousRefreshToken(null);
+            session.rememberSession(email, session.accessToken(), session.refreshToken());
         }
     }
 
@@ -205,6 +206,50 @@ public class IamSteps {
         List<String> emailsInList = new ArrayList<>();
         session.body().forEach(user -> emailsInList.add(user.path("email").asText()));
         assertThat(emailsInList).containsExactlyInAnyOrderElementsOf(expectedEmails);
+    }
+
+    @Cuando("desactivo al usuario {string}")
+    public void deactivate(String email) throws Exception {
+        session.send(ApiRequest.patch("/api/v1/users/" + session.id(email)), Map.of("active", false));
+    }
+
+    @Dado("que desactivé al usuario {string}")
+    public void deactivated(String email) throws Exception {
+        deactivate(email);
+        session.expectStatus(200);
+    }
+
+    @Cuando("reactivo al usuario {string}")
+    public void reactivate(String email) throws Exception {
+        session.send(ApiRequest.patch("/api/v1/users/" + session.id(email)), Map.of("active", true));
+    }
+
+    @Cuando("cambio el rol de {string} a {string}")
+    public void changeRole(String email, String roleName) throws Exception {
+        session.send(ApiRequest.patch("/api/v1/users/" + session.id(email)), Map.of("role", role(roleName)));
+    }
+
+    @Entonces("el usuario {string} figura inactivo")
+    public void userIsInactive(String email) throws Exception {
+        ApiResponse response = session.perform(get("/api/v1/users"), null, session.accessToken());
+        boolean found = false;
+        for (JsonNode user : session.read(response)) {
+            if (user.path("email").asText().equals(email)) {
+                found = true;
+                assertThat(user.path("active").asBoolean()).isFalse();
+            }
+        }
+        assertThat(found).as("usuario %s en la lista", email).isTrue();
+    }
+
+    @Entonces("la sesión que tenía {string} ya no sirve")
+    public void previousSessionIsRevoked(String email) throws Exception {
+        String[] tokens = session.sessionOf(email);
+        ApiResponse access = session.perform(get("/api/v1/orders"), null, tokens[0]);
+        assertThat(access.status()).as("token de acceso anterior").isEqualTo(401);
+        assertThat(session.read(access).path("code").asText()).isEqualTo("TOKEN_REVOKED");
+        ApiResponse refresh = session.perform(post("/api/v1/auth/refresh"), Map.of("refreshToken", tokens[1]), null);
+        assertThat(refresh.status()).as("token de renovación anterior").isEqualTo(401);
     }
 
     // ---------- US05 Recuperación de contraseña ----------
