@@ -1,5 +1,7 @@
 package pe.buildshield.core.ordering.infrastructure.persistence;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Repository;
 import pe.buildshield.core.shared.error.ResourceNotFoundException;
@@ -16,9 +18,11 @@ import java.util.UUID;
 class JpaOrderRepository implements OrderRepository {
 
     private final SpringDataOrderRepository jpa;
+    private final EntityManager entityManager;
 
-    JpaOrderRepository(SpringDataOrderRepository jpa) {
+    JpaOrderRepository(SpringDataOrderRepository jpa, EntityManager entityManager) {
         this.jpa = jpa;
+        this.entityManager = entityManager;
     }
 
     @Override
@@ -49,6 +53,9 @@ class JpaOrderRepository implements OrderRepository {
         if (!Objects.equals(entity.getVersion(), order.version())) {
             throw new ObjectOptimisticLockingFailureException(OrderJpaEntity.class, order.id());
         }
+        // Un despacho puede cambiar solo las cantidades de las líneas (sin cambiar el estado): se fuerza la
+        // versión del pedido para que dos despachos simultáneos no se pisen; el segundo falla con 409.
+        entityManager.lock(entity, LockModeType.PESSIMISTIC_FORCE_INCREMENT);
         entity.apply(order);
         return jpa.saveAndFlush(entity).toDomain();
     }

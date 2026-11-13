@@ -45,6 +45,9 @@ buildshield:
       - /api/v1/orders
       - /api/v1/orders/*/approve
       - /api/v1/orders/*/reject
+      - /api/v1/dispatches
+      - /api/v1/dispatches/*/depart
+      - /api/v1/receptions/*/confirm
   iam:
     # Duración de la sesión renovable y del enlace de recuperación de contraseña.
     refresh-token-ttl: P7D

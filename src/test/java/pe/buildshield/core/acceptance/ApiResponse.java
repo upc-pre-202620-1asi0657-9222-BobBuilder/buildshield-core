@@ -1,5 +1,9 @@
 package pe.buildshield.core.acceptance;
 
-/** Respuesta HTTP real del Core: código y cuerpo como texto. */
-public record ApiResponse(int status, String body) {
+/** Respuesta HTTP real del Core: código, cuerpo como texto y la cabecera Idempotent-Replayed (si vino). */
+public record ApiResponse(int status, String body, String replayed) {
+
+    public ApiResponse(int status, String body) {
+        this(status, body, null);
+    }
 }

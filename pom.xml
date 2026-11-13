@@ -23,6 +23,7 @@
         <archunit.version>1.4.2</archunit.version>
         <cucumber.version>7.34.9</cucumber.version>
         <jacoco.version>0.8.15</jacoco.version>
+        <zxing.version>3.5.3</zxing.version>
         <!-- Cucumber 7.34 requiere JUnit Platform 1.13+ -->
         <junit-jupiter.version>5.14.4</junit-jupiter.version>
         <jacoco.minimum.line.coverage>0.80</jacoco.minimum.line.coverage>
@@ -88,6 +89,18 @@
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
             <version>${springdoc.version}</version>
+        </dependency>
+
+        <!-- QR del manifiesto de despacho (US24) -->
+        <dependency>
+            <groupId>com.google.zxing</groupId>
+            <artifactId>core</artifactId>
+            <version>${zxing.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.google.zxing</groupId>
+            <artifactId>javase</artifactId>
+            <version>${zxing.version}</version>
         </dependency>
 
         <!-- Pruebas -->

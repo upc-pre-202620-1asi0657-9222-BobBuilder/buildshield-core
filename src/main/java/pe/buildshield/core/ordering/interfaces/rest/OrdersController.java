@@ -94,13 +94,13 @@ class OrdersController {
 
     @PostMapping("/{id}/approve")
     @PreAuthorize("hasAnyRole('ADMINISTRATOR', 'WAREHOUSE_MANAGER')")
-    @Operation(summary = "Aprobar un pedido", description = "Registrado → EnRevision. Lo hace el encargado del almacén de origen o el administrador.")
+    @Operation(summary = "Aprobar un pedido", description = "Registrado → EnRevision. Lo hace el encargado del almacén de origen o el administrador. Reserva en el almacén de origen lo solicitado de cada línea (disponible → reservado); si alguna no alcanza responde 409 INSUFFICIENT_STOCK y no cambia nada.")
     @ApiResponse(responseCode = "200", description = "Pedido aprobado",
             content = @Content(schema = @Schema(implementation = OrderResource.class),
                     examples = @ExampleObject(value = OrderApiExamples.ORDER_APPROVED)))
     @ApiResponse(responseCode = "404", description = "No existe o el usuario no es del almacén de origen",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
-    @ApiResponse(responseCode = "409", description = "El estado actual no permite aprobar",
+    @ApiResponse(responseCode = "409", description = "El estado actual no permite aprobar o no hay stock suficiente para reservar (INSUFFICIENT_STOCK)",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     OrderResource approve(@Parameter(description = "Id del pedido", example = OrderApiExamples.ORDER_ID) @PathVariable UUID id) {
         return OrderResource.of(orders.approve(id));
@@ -155,12 +155,13 @@ class OrdersController {
     }
 
     @Schema(description = "Línea del pedido: pendiente = solicitado - despachado - cancelado")
-    record LineResource(UUID materialId, String sku, String unit, BigDecimal requested, BigDecimal dispatched,
+    record LineResource(@Schema(description = "Id de la línea; los despachos la referencian") UUID id,
+            UUID materialId, String sku, String unit, BigDecimal requested, BigDecimal dispatched,
             BigDecimal cancelled, BigDecimal received, BigDecimal pending) {
 
         static LineResource of(LineView line) {
-            return new LineResource(line.materialId(), line.sku(), line.unit(), line.requested(), line.dispatched(),
-                    line.cancelled(), line.received(), line.pending());
+            return new LineResource(line.id(), line.materialId(), line.sku(), line.unit(), line.requested(),
+                    line.dispatched(), line.cancelled(), line.received(), line.pending());
         }
     }
 }

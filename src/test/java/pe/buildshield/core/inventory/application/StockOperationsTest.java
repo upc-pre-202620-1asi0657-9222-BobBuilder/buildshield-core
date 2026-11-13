@@ -10,6 +10,8 @@ import pe.buildshield.core.inventory.domain.model.Quantity;
 import pe.buildshield.core.inventory.domain.model.StockItem;
 import pe.buildshield.core.inventory.domain.model.StockMovement;
 import pe.buildshield.core.inventory.domain.model.StockRepository;
+import pe.buildshield.core.inventory.domain.model.StockReservation;
+import pe.buildshield.core.shared.error.ConflictException;
 
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -138,5 +140,112 @@ class StockOperationsTest {
         assertThat(movement.getValue().type()).isEqualTo(StockMovement.Type.ENTRY);
         assertThat(movement.getValue().quantity()).isEqualByComparingTo("100");
         assertThat(movement.getValue().balanceAfter()).isEqualByComparingTo("120");
+    }
+
+    // ---------- Reservas (RF40) y consumo al despachar (RF41) ----------
+
+    private static final UUID ORDER = UUID.randomUUID();
+    private static final UUID LINE = UUID.randomUUID();
+
+    private static StockItem item(String available, String reserved, long version) {
+        return new StockItem(ITEM, WAREHOUSE, CEMENT, new BigDecimal(available), new BigDecimal(reserved), version);
+    }
+
+    private static StockReservation reservation(String quantity, String consumed) {
+        return new StockReservation(UUID.randomUUID(), ITEM, ORDER, LINE, new BigDecimal(quantity),
+                new BigDecimal(consumed), StockReservation.Status.RESERVED, NOW);
+    }
+
+    @Test
+    void reserves_moving_available_to_reserved_and_records_the_reservation() {
+        when(stock.find(WAREHOUSE, CEMENT)).thenReturn(Optional.of(item("10", "0", 4)));
+        when(stock.tryReserve(ITEM, 4, Quantity.of("7"))).thenReturn(true);
+
+        StockLevel level = operations.reserve(WAREHOUSE, CEMENT, new BigDecimal("7"), ORDER, LINE);
+
+        assertThat(level.availableQty()).isEqualByComparingTo("3");
+        assertThat(level.reservedQty()).isEqualByComparingTo("7");
+        ArgumentCaptor<StockReservation> saved = ArgumentCaptor.forClass(StockReservation.class);
+        verify(stock).saveReservation(saved.capture());
+        assertThat(saved.getValue().orderLineId()).isEqualTo(LINE);
+        assertThat(saved.getValue().remaining()).isEqualByComparingTo("7");
+        ArgumentCaptor<StockMovement> movement = ArgumentCaptor.forClass(StockMovement.class);
+        verify(stock).record(movement.capture());
+        assertThat(movement.getValue().type()).isEqualTo(StockMovement.Type.RESERVE);
+        assertThat(movement.getValue().balanceAfter()).isEqualByComparingTo("3");
+    }
+
+    @Test
+    void reservation_retries_on_version_conflict_and_fails_without_effects_when_stock_is_gone() {
+        when(stock.find(WAREHOUSE, CEMENT)).thenReturn(Optional.of(item("10", "0", 4)), Optional.of(item("3", "7", 5)));
+        when(stock.tryReserve(ITEM, 4, Quantity.of("7"))).thenReturn(false);
+
+        assertThatThrownBy(() -> operations.reserve(WAREHOUSE, CEMENT, new BigDecimal("7"), ORDER, LINE))
+                .isInstanceOf(InsufficientStockException.class);
+        verify(stock, never()).saveReservation(any());
+        verify(stock, never()).record(any());
+    }
+
+    @Test
+    void reservation_without_stock_record_or_with_permanent_conflicts_fails() {
+        when(stock.find(WAREHOUSE, CEMENT)).thenReturn(Optional.empty());
+        assertThatThrownBy(() -> operations.reserve(WAREHOUSE, CEMENT, BigDecimal.ONE, ORDER, LINE))
+                .isInstanceOf(InsufficientStockException.class);
+
+        when(stock.find(WAREHOUSE, CEMENT)).thenReturn(Optional.of(item("10", "0", 4)));
+        when(stock.tryReserve(eq(ITEM), anyLong(), any())).thenReturn(false);
+        assertThatThrownBy(() -> operations.reserve(WAREHOUSE, CEMENT, BigDecimal.ONE, ORDER, LINE))
+                .isInstanceOf(ConcurrentStockModificationException.class);
+    }
+
+    @Test
+    void consuming_a_reservation_takes_it_out_of_reserved_and_records_the_dispatch() {
+        when(stock.findReservation(LINE)).thenReturn(Optional.of(reservation("50", "20")));
+        when(stock.find(WAREHOUSE, CEMENT)).thenReturn(Optional.of(item("10", "30", 8)));
+        when(stock.tryConsumeReserved(ITEM, 8, Quantity.of("30"))).thenReturn(true);
+        when(stock.tryConsumeReservation(LINE, Quantity.of("30"))).thenReturn(true);
+
+        StockLevel level = operations.consumeReservation(WAREHOUSE, CEMENT, new BigDecimal("30"), LINE, "Despacho D-2");
+
+        assertThat(level.availableQty()).isEqualByComparingTo("10");
+        assertThat(level.reservedQty()).isZero();
+        ArgumentCaptor<StockMovement> movement = ArgumentCaptor.forClass(StockMovement.class);
+        verify(stock).record(movement.capture());
+        assertThat(movement.getValue().type()).isEqualTo(StockMovement.Type.DISPATCH);
+        assertThat(movement.getValue().reference()).isEqualTo("Despacho D-2");
+    }
+
+    @Test
+    void consuming_more_than_reserved_is_a_conflict_without_effects() {
+        when(stock.findReservation(LINE)).thenReturn(Optional.of(reservation("50", "40")));
+        assertThatThrownBy(() -> operations.consumeReservation(WAREHOUSE, CEMENT, new BigDecimal("11"), LINE, null))
+                .isInstanceOf(ConflictException.class)
+                .hasFieldOrPropertyWithValue("code", StockOperations.RESERVATION_NOT_AVAILABLE);
+
+        when(stock.findReservation(LINE)).thenReturn(Optional.empty());
+        assertThatThrownBy(() -> operations.consumeReservation(WAREHOUSE, CEMENT, BigDecimal.ONE, LINE, null))
+                .hasFieldOrPropertyWithValue("code", StockOperations.RESERVATION_NOT_AVAILABLE);
+
+        when(stock.findReservation(LINE)).thenReturn(Optional.of(reservation("50", "0")));
+        when(stock.find(WAREHOUSE, CEMENT)).thenReturn(Optional.of(item("10", "0", 8)));
+        assertThatThrownBy(() -> operations.consumeReservation(WAREHOUSE, CEMENT, BigDecimal.ONE, LINE, null))
+                .hasFieldOrPropertyWithValue("code", StockOperations.RESERVATION_NOT_AVAILABLE);
+
+        when(stock.find(WAREHOUSE, CEMENT)).thenReturn(Optional.of(item("10", "50", 8)));
+        when(stock.tryConsumeReserved(ITEM, 8, Quantity.of("1"))).thenReturn(true);
+        when(stock.tryConsumeReservation(LINE, Quantity.of("1"))).thenReturn(false);
+        assertThatThrownBy(() -> operations.consumeReservation(WAREHOUSE, CEMENT, BigDecimal.ONE, LINE, null))
+                .hasFieldOrPropertyWithValue("code", StockOperations.RESERVATION_NOT_AVAILABLE);
+        verify(stock, never()).record(any());
+    }
+
+    @Test
+    void consuming_gives_up_after_three_version_conflicts() {
+        when(stock.findReservation(LINE)).thenReturn(Optional.of(reservation("50", "0")));
+        when(stock.find(WAREHOUSE, CEMENT)).thenReturn(Optional.of(item("10", "50", 8)));
+        when(stock.tryConsumeReserved(eq(ITEM), anyLong(), any())).thenReturn(false);
+
+        assertThatThrownBy(() -> operations.consumeReservation(WAREHOUSE, CEMENT, BigDecimal.ONE, LINE, null))
+                .isInstanceOf(ConcurrentStockModificationException.class);
     }
 }

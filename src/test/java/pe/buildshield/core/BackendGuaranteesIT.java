@@ -218,6 +218,7 @@ class BackendGuaranteesIT {
         var replay = api.call("POST", "/api/v1/orders", f.order(), f.siteToken(), createKey);
         assertThat(replay.text()).isEqualTo(created.text());
         assertThat(replay.headers().firstValue("Location")).isEqualTo(created.headers().firstValue("Location"));
+        assertThat(api.call("POST", "/api/v1/stock/entries", f.entry(10), f.tenant().token()).status()).isEqualTo(201);
         UUID approvalKey = UUID.randomUUID();
         var approved = api.call("POST", "/api/v1/orders/" + id + "/approve", null, f.tenant().token(), approvalKey);
         assertThat(approved.status()).isEqualTo(200);
@@ -241,6 +242,7 @@ class BackendGuaranteesIT {
     }
 
     @Test void simultaneous_order_decisions_leave_one_valid_state_and_one_audit_event() throws Exception {
+        assertThat(api.call("POST", "/api/v1/stock/entries", f.entry(10), f.tenant().token()).status()).isEqualTo(201);
         UUID id = api.create("/api/v1/orders", f.order(), f.siteToken());
         var pool = Executors.newFixedThreadPool(2);
         CountDownLatch start = new CountDownLatch(1);

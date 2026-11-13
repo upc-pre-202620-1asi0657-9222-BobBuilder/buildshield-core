@@ -2,7 +2,7 @@
 @US04
 Característica: US04 Gestión de usuarios y roles
   Como administrador de la organización
-  quiero crear usuarios con su rol
+  quiero crear usuarios con su rol, cambiarlo y desactivarlos
   para que cada persona acceda solo a lo que le corresponde
 
   Antecedentes:
@@ -49,3 +49,39 @@ Característica: US04 Gestión de usuarios y roles
     Y la lista de usuarios contiene exactamente:
       | ana@andina.pe  |
       | rosa@andina.pe |
+
+  Escenario: El administrador desactiva a un usuario y este ya no inicia sesión
+    Dado que creé el usuario "Rosa Quispe" con correo "rosa@andina.pe", rol "encargado de almacén" y contraseña "Almacen123"
+    Y que "rosa@andina.pe" inició sesión con la contraseña "Almacen123"
+    Y que "ana@andina.pe" inició sesión con la contraseña "Segura123"
+    Cuando desactivo al usuario "rosa@andina.pe"
+    Entonces la respuesta tiene estado 200
+    Y el usuario "rosa@andina.pe" figura inactivo
+    Y "rosa@andina.pe" no puede iniciar sesión con la contraseña "Almacen123"
+    Y la sesión que tenía "rosa@andina.pe" ya no sirve
+
+  Escenario: Un usuario reactivado vuelve a iniciar sesión
+    Dado que creé el usuario "Rosa Quispe" con correo "rosa@andina.pe", rol "encargado de almacén" y contraseña "Almacen123"
+    Y que desactivé al usuario "rosa@andina.pe"
+    Cuando reactivo al usuario "rosa@andina.pe"
+    Entonces la respuesta tiene estado 200
+    Y "rosa@andina.pe" puede iniciar sesión con la contraseña "Almacen123" como "encargado de almacén"
+
+  Escenario: El administrador cambia el rol y la sesión anterior deja de valer
+    Dado que creé el usuario "Rosa Quispe" con correo "rosa@andina.pe", rol "encargado de almacén" y contraseña "Almacen123"
+    Y que "rosa@andina.pe" inició sesión con la contraseña "Almacen123"
+    Y que "ana@andina.pe" inició sesión con la contraseña "Segura123"
+    Cuando cambio el rol de "rosa@andina.pe" a "encargado de obra"
+    Entonces la respuesta tiene estado 200
+    Y la sesión que tenía "rosa@andina.pe" ya no sirve
+    Y "rosa@andina.pe" puede iniciar sesión con la contraseña "Almacen123" como "encargado de obra"
+
+  Escenario: El administrador no se desactiva a sí mismo
+    Cuando desactivo al usuario "ana@andina.pe"
+    Entonces la operación es rechazada con estado 409 y código "CANNOT_CHANGE_OWN_ACCOUNT"
+
+  Escenario: Un encargado no cambia usuarios
+    Dado que creé el usuario "Rosa Quispe" con correo "rosa@andina.pe", rol "encargado de almacén" y contraseña "Almacen123"
+    Y que "rosa@andina.pe" inició sesión con la contraseña "Almacen123"
+    Cuando desactivo al usuario "rosa@andina.pe"
+    Entonces la operación es rechazada con estado 403

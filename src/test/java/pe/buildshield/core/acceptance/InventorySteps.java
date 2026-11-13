@@ -35,6 +35,15 @@ public class InventorySteps {
 
     @Entonces("el stock disponible del material {string} en el almacén {string} es {string}")
     public void availableStockIs(String sku, String warehouse, String expected) throws Exception {
+        assertThat(stockItem(sku, warehouse).path("availableQty").decimalValue()).isEqualByComparingTo(expected);
+    }
+
+    @Entonces("el stock reservado del material {string} en el almacén {string} es {string}")
+    public void reservedStockIs(String sku, String warehouse, String expected) throws Exception {
+        assertThat(stockItem(sku, warehouse).path("reservedQty").decimalValue()).isEqualByComparingTo(expected);
+    }
+
+    private JsonNode stockItem(String sku, String warehouse) throws Exception {
         ApiResponse response = session.perform(get("/api/v1/stock").param("warehouseId", session.id(warehouse).toString()),
                 null, session.accessToken());
         assertThat(response.status()).isEqualTo(200);
@@ -45,7 +54,7 @@ public class InventorySteps {
             }
         }
         assertThat(found).as("stock de %s en %s", sku, warehouse).isNotNull();
-        assertThat(found.path("availableQty").decimalValue()).isEqualByComparingTo(expected);
+        return found;
     }
 
     @Cuando("consulto el stock")

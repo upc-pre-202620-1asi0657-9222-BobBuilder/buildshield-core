@@ -1,6 +1,7 @@
 package pe.buildshield.core.ordering.application;
 
 import pe.buildshield.core.audit.AuditTrail;
+import pe.buildshield.core.inventory.StockService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pe.buildshield.core.shared.error.ConflictException;
@@ -23,7 +24,8 @@ import java.util.UUID;
 
 /**
  * US18 crear pedido, US20 aprobar o rechazar y US21 consultar estado. Obra, almacén, materiales y
- * asignaciones se consultan solo por {@link OrganizationContextFacade}.
+ * asignaciones se consultan solo por {@link OrganizationContextFacade}; las reservas de stock, solo
+ * por {@link StockService}.
  *
  * <p>Visibilidad: el administrador ve todos los pedidos; el encargado de obra, los de sus obras; el
  * encargado de almacén, los de sus almacenes. Lo demás responde 404.
@@ -37,10 +39,13 @@ public class OrderService {
     private final OrderRepository orders;
     private final OrganizationContextFacade organization;
     private final Clock clock;
+    private final StockService stock;
 
-    public OrderService(OrderRepository orders, OrganizationContextFacade organization, Clock clock, AuditTrail audit) {
+    public OrderService(OrderRepository orders, OrganizationContextFacade organization, StockService stock, Clock clock,
+            AuditTrail audit) {
         this.orders = orders;
         this.organization = organization;
+        this.stock = stock;
         this.clock = clock;
         this.audit = audit;
     }
@@ -63,12 +68,23 @@ public class OrderService {
         return audit.recorded("ORDER_CREATED", "ORDER", OrderView.of(orders.save(order)));
     }
 
-    /** US20: aprueba el encargado del almacén de origen o el administrador. */
+    /**
+     * US20, RF40, QAS02: aprueba el encargado del almacén de origen o el administrador, y reserva en ese
+     * almacén lo solicitado de cada línea. Si alguna línea no alcanza responde 409
+     * {@code INSUFFICIENT_STOCK} y no cambia nada (ni el pedido ni ninguna reserva).
+     *
+     * <p>El pedido se guarda antes de reservar: si dos aprobaciones del mismo pedido compiten, la segunda
+     * falla por versión antes de tocar el stock.
+     */
     @Transactional
     public OrderView approve(UUID orderId) {
         Order order = decidableOrder(orderId);
         order.approve(requester().userId(), clock.instant());
-        return audit.recorded("ORDER_APPROVED", "ORDER", OrderView.of(orders.save(order)));
+        Order approved = orders.save(order);
+        for (OrderLine line : approved.lines()) {
+            stock.reserve(approved.warehouseId(), line.materialId(), line.requested(), approved.id(), line.id());
+        }
+        return audit.recorded("ORDER_APPROVED", "ORDER", OrderView.of(approved));
     }
 
     /** US20: rechazo con motivo obligatorio; el pedido queda Cancelado. */
@@ -150,12 +166,12 @@ public class OrderService {
         }
     }
 
-    public record LineView(UUID materialId, String sku, String unit, BigDecimal requested, BigDecimal dispatched,
-            BigDecimal cancelled, BigDecimal received, BigDecimal pending) {
+    public record LineView(UUID id, UUID materialId, String sku, String unit, BigDecimal requested,
+            BigDecimal dispatched, BigDecimal cancelled, BigDecimal received, BigDecimal pending) {
 
         static LineView of(OrderLine line) {
-            return new LineView(line.materialId(), line.sku(), line.unit(), line.requested(), line.dispatched(),
-                    line.cancelled(), line.received(), line.pending());
+            return new LineView(line.id(), line.materialId(), line.sku(), line.unit(), line.requested(),
+                    line.dispatched(), line.cancelled(), line.received(), line.pending());
         }
     }
 }

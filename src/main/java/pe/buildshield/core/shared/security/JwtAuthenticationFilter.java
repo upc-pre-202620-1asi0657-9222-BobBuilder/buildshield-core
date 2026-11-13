@@ -22,8 +22,8 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Autentica la petición con el token Bearer: valida firma RS256, vigencia de 15 minutos y lista de
- * revocación, y carga el {@code SecurityContext} y el {@link TenantContext}. Ambos se limpian al
+ * Autentica la petición con el token Bearer: valida firma RS256, vigencia de 15 minutos, lista de
+ * revocación y que el usuario siga activo con el rol del token, y carga el {@code SecurityContext} y el {@link TenantContext}. Ambos se limpian al
  * terminar la petición.
  *
  * <p>Sin token, la petición sigue sin autenticar y la cadena de seguridad decide. Con un token
@@ -61,7 +61,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
         try {
-            if (revokedTokens.isRevoked(jwt.getId())) {
+            if (revokedTokens.isRevoked(jwt.getId()) || revokedTokens.isUserBlocked(
+                    UUID.fromString(jwt.getSubject()), jwt.getClaimAsString(JwtClaimNames.ROLE))) {
                 unauthorized(response, "TOKEN_REVOKED", "El token fue revocado");
                 return;
             }

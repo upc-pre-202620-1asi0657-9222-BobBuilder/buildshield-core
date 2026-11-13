@@ -5,11 +5,16 @@ import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
 
-/** Registro inmutable de una entrada o salida de stock, con el saldo que dejó. */
+/**
+ * Registro inmutable de un movimiento de stock, con el saldo disponible que dejó.
+ *
+ * <p>Tipos: ENTRY (entrada), DEDUCTION (descuento directo), RESERVE (disponible a reservado al aprobar
+ * un pedido), RELEASE (reservado a disponible) y DISPATCH (salida de lo reservado al despachar).
+ */
 public record StockMovement(UUID stockItemId, Type type, BigDecimal quantity, BigDecimal balanceAfter, String reference,
         Instant occurredAt) {
 
-    public enum Type { ENTRY, DEDUCTION }
+    public enum Type { ENTRY, DEDUCTION, RESERVE, RELEASE, DISPATCH }
 
     public StockMovement {
         Objects.requireNonNull(stockItemId, "stockItemId");

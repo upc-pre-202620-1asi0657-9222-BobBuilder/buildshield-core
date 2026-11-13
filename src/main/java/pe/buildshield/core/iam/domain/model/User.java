@@ -19,9 +19,9 @@ public class User {
     private final UUID organizationId;
     private final EmailAddress email;
     private final String fullName;
-    private final Role role;
+    private Role role;
     private String passwordHash;
-    private final boolean active;
+    private boolean active;
     private final Long version;
 
     private User(UUID id, UUID organizationId, EmailAddress email, String fullName, Role role, String passwordHash,
@@ -51,6 +51,24 @@ public class User {
 
     public void changePasswordHash(String newPasswordHash) {
         this.passwordHash = requireHash(newPasswordHash);
+    }
+
+    /**
+     * US04: activa o desactiva al usuario y cambia su rol. Un usuario desactivado no inicia sesión.
+     *
+     * @return {@code true} si cambió el estado o el rol: sus sesiones abiertas deben revocarse
+     */
+    public boolean update(Boolean newActive, Role newRole) {
+        boolean changed = false;
+        if (newActive != null && newActive != active) {
+            active = newActive;
+            changed = true;
+        }
+        if (newRole != null && newRole != role) {
+            role = newRole;
+            changed = true;
+        }
+        return changed;
     }
 
     public boolean canSignIn() {

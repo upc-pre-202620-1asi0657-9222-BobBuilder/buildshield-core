@@ -8,6 +8,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -19,6 +20,7 @@ import java.util.UUID;
 public class Order {
 
     public static final String REJECTION_REASON_REQUIRED = "REJECTION_REASON_REQUIRED";
+    public static final String ORDER_LINE_NOT_FOUND = "ORDER_LINE_NOT_FOUND";
     static final int MAX_TEXT = 500;
 
     private final UUID id;
@@ -109,6 +111,43 @@ public class Order {
         }
         line(materialId).registerDispatch(quantity);
         state = state.dispatched(lines.stream().allMatch(OrderLine::isComplete));
+    }
+
+    /**
+     * US22, US23: registra un despacho de una o varias líneas (por id de línea). Ninguna cantidad supera
+     * lo pendiente de su línea; el pedido pasa a ParcialmenteAtendido o, si ya no queda nada pendiente,
+     * a Atendido. Si algo falla no cambia nada.
+     */
+    public void registerDispatch(Map<UUID, BigDecimal> quantitiesByLine) {
+        if (!state.acceptsDispatch()) {
+            throw new InvalidOrderTransitionException(state.status(), "despachar");
+        }
+        if (quantitiesByLine == null || quantitiesByLine.isEmpty()) {
+            throw new ValidationException("DISPATCH_WITHOUT_LINES", "El despacho debe tener al menos una línea");
+        }
+        quantitiesByLine.forEach((lineId, quantity) -> lineById(lineId).checkDispatch(quantity));
+        quantitiesByLine.forEach((lineId, quantity) -> lineById(lineId).registerDispatch(quantity));
+        state = state.dispatched(lines.stream().allMatch(OrderLine::isComplete));
+    }
+
+    /** US37: suma lo recibido en obra por línea (por id de línea); no supera lo despachado. */
+    public void registerReceived(Map<UUID, BigDecimal> quantitiesByLine) {
+        quantitiesByLine.forEach((lineId, quantity) -> lineById(lineId).registerReceived(quantity));
+    }
+
+    /** ¿Queda algo pendiente de despachar? */
+    public boolean hasPending() {
+        return lines.stream().anyMatch(line -> !line.isComplete());
+    }
+
+    public boolean acceptsDispatch() {
+        return state.acceptsDispatch();
+    }
+
+    public OrderLine lineById(UUID lineId) {
+        return lines.stream().filter(line -> lineId != null && lineId.equals(line.id())).findFirst()
+                .orElseThrow(() -> new ValidationException(ORDER_LINE_NOT_FOUND, "La línea " + lineId
+                        + " no pertenece al pedido", List.of(new ErrorDetail("orderLineId", String.valueOf(lineId)))));
     }
 
     /** Cancela el pedido; si ya tenía despachos, cancela lo pendiente y queda Atendido. */

@@ -8,6 +8,7 @@ final class OrderApiExamples {
     private static final String LINES = """
               "lines": [
                 {
+                  "id": "7a8b9c0d-1e2f-4a3b-8c4d-5e6f7a8b9c0d",
                   "materialId": "4d5e6f7a-8b9c-4d0e-8f1a-2b3c4d5e6f7a",
                   "sku": "CEM-001",
                   "unit": "BAG",

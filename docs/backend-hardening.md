@@ -4,11 +4,11 @@ El Core es un monolito modular con PostgreSQL. IAM, Organización, Inventario y 
 
 ## Contrato de idempotencia
 
-En `POST /api/v1/stock/entries`, `POST /api/v1/orders` y `POST /api/v1/orders/{id}/approve|reject` es obligatorio enviar `Idempotency-Key` con un UUID completo. Una intención nueva necesita una clave nueva; un reintento conserva la clave, el cuerpo, el tipo de contenido y los parámetros.
+En `POST /api/v1/stock/entries`, `POST /api/v1/orders`, `POST /api/v1/orders/{id}/approve|reject`, `POST /api/v1/dispatches`, `POST /api/v1/dispatches/{id}/depart` y `POST /api/v1/receptions/{id}/confirm` es obligatorio enviar `Idempotency-Key` con un UUID completo. Una intención nueva necesita una clave nueva; un reintento conserva la clave, el cuerpo, el tipo de contenido y los parámetros.
 
 La identidad incluye empresa, actor, rol, método, ruta, parámetros y SHA-256 del cuerpo. Los objetos JSON se ordenan por nombre de propiedad; el orden de arrays se conserva. El cuerpo está limitado a 1 MiB. El UUID, empresa o usuario enviados dentro del cuerpo no sustituyen la identidad del JWT.
 
-El bloqueo de PostgreSQL dura la transacción. Negocio, movimientos, auditoría exitosa y respuesta se confirman juntos. Solo se guardan respuestas 2xx. Las operaciones fallidas deshacen sus efectos y permiten reintentar. Se revisan las asignaciones actuales antes de reproducir una respuesta de Inventario o Pedidos.
+El bloqueo de PostgreSQL dura la transacción. Negocio, movimientos, auditoría exitosa y respuesta se confirman juntos. Solo se guardan respuestas 2xx. Las operaciones fallidas deshacen sus efectos y permiten reintentar. Se revisan las asignaciones actuales antes de reproducir una respuesta de Inventario, Pedidos, Despachos o Recepciones.
 
 | Situación | Respuesta |
 |---|---|
@@ -31,7 +31,7 @@ Si el celular pierde la respuesta, debe repetir la misma solicitud con la misma 
 
 Stock mantiene su actualización condicionada por versión y cantidad disponible: hasta tres reintentos ante conflicto, sin inventario negativo. El saldo, movimiento y evento de auditoría se guardan en una misma transacción. La fachada StockService se une a la transacción de su llamador.
 
-Aprobar pedidos mantiene el comportamiento existente: Registrado → EnRevision. No reserva ni descuenta stock. Despachos y Recepciones todavía no están implementados.
+Desde el Sprint 2, aprobar un pedido (Registrado → EnRevision) reserva lo solicitado en el almacén de origen con el mismo UPDATE condicionado; si una línea no alcanza, responde 409 `INSUFFICIENT_STOCK` y no cambia nada. El pedido se guarda antes de reservar, así dos aprobaciones del mismo pedido fallan por versión antes de tocar el stock. La salida de un despacho consume la reserva (reservado → salida) y la conformidad de la recepción suma lo recibido al stock de la obra, cada una en su transacción con el resto de sus efectos. Pedidos y recepciones se guardan forzando su versión (`PESSIMISTIC_FORCE_INCREMENT`), porque un despacho o una línea recibida pueden cambiar solo las líneas: dos operaciones simultáneas no se pisan y la segunda responde 409.
 
 Las tablas son compartidas entre empresas con organization_id; el esquema separa módulos. Hibernate filtra por empresa y JDBC usa condiciones explícitas. Las relaciones de movimientos–stock y líneas–pedido incluyen la empresa en su FK (relación que la base comprueba), dentro del mismo BC.
 
@@ -41,7 +41,7 @@ Las conexiones esperan 5 segundos, las sentencias 5 segundos y los bloqueos 2 se
 
 AuditTrail es la fachada pública del módulo. Registra vistas públicas del estado confirmado y detalles explícitos del stock: empresa, actor, rol, acción, recurso, fecha, correlación y clave de operación cuando existe. No recibe comandos de contraseña ni entidades IAM con credenciales.
 
-Se auditan organizaciones, usuarios, obras, almacenes, materiales, asignaciones, movimientos de inventario y decisiones de pedidos. El alta pública usa el actor técnico SYSTEM_USER_ID porque todavía no existe una sesión autenticada.
+Se auditan organizaciones, usuarios (incluida su desactivación y cambio de rol), obras, almacenes, materiales, asignaciones, movimientos de inventario (también reservas y salidas), decisiones de pedidos, despachos (creación, transportista, pesaje y salida) y recepciones (apertura y conformidad). El alta pública usa el actor técnico SYSTEM_USER_ID porque todavía no existe una sesión autenticada.
 
 Las respuestas 403/404 de usuarios autenticados se registran en una transacción independiente, asociadas al solicitante, método, ruta y recurso identificable. Si falla este registro, la denegación se conserva y se registra el fallo técnico sin secretos. No se revela información de la empresa ajena.
 
@@ -61,7 +61,7 @@ Es un Audit Store (historial complementario al estado actual). No es Event Sourc
 
 ## Migraciones y mínima complejidad
 
-V13 conserva la identidad de operaciones y marca las respuestas retiradas; no inventa identidad para registros antiguos. V14 crea la bitácora y las protecciones de solo anexado. V15 agrega relaciones compuestas por empresa. No se modifica ninguna migración publicada ni se corrigen datos históricos inválidos silenciosamente.
+V13 conserva la identidad de operaciones y marca las respuestas retiradas; no inventa identidad para registros antiguos. V14 crea la bitácora y las protecciones de solo anexado. V15 agrega relaciones compuestas por empresa. V16 agrega las reservas de stock y los tipos de movimiento RESERVE, RELEASE y DISPATCH; V17 los despachos, sus líneas y el pesaje de salida; V18 las recepciones y sus líneas. No se modifica ninguna migración publicada ni se corrigen datos históricos inválidos silenciosamente.
 
 No se incorpora broker, Saga ni Outbox: las operaciones actuales se resuelven con transacciones locales. Resilience4j se retiró porque no tenía un uso implementado. Auditoría utiliza una fachada pequeña; no exige replicar todas las capas hexagonales.
 

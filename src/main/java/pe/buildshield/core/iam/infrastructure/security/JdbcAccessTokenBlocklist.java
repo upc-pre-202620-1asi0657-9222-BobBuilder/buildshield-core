@@ -11,6 +11,7 @@ import pe.buildshield.core.iam.domain.model.TokenRepositories.AccessTokenBlockli
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.UUID;
 
 /**
  * Lista de revocación de tokens de acceso (tabla iam.revoked_access_tokens). La consulta el
@@ -39,6 +40,21 @@ class JdbcAccessTokenBlocklist implements RevokedTokenStore, AccessTokenBlocklis
                 "SELECT EXISTS (SELECT 1 FROM iam.revoked_access_tokens WHERE jti = ? AND expires_at > ?)",
                 Boolean.class, tokenId, Timestamp.from(clock.instant()));
         return Boolean.TRUE.equals(revoked);
+    }
+
+    /**
+     * US04: un usuario desactivado, o con otro rol que el del token, ya no usa los tokens de acceso que
+     * tenía (vigentes hasta 15 minutos). Una consulta por clave primaria.
+     */
+    @Override
+    public boolean isUserBlocked(UUID userId, String role) {
+        if (userId == null) {
+            return false;
+        }
+        Boolean blocked = jdbc.queryForObject(
+                "SELECT EXISTS (SELECT 1 FROM iam.users WHERE id = ? AND (NOT active OR role <> ?))",
+                Boolean.class, userId, role == null ? "" : role);
+        return Boolean.TRUE.equals(blocked);
     }
 
     @Override

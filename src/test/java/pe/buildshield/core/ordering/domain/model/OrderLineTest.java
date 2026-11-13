@@ -62,7 +62,7 @@ class OrderLineTest {
         line.registerDispatch(qty("45"));
 
         assertThatThrownBy(() -> line.registerDispatch(qty("5.001")))
-                .isInstanceOf(ValidationException.class)
+                .isInstanceOf(pe.buildshield.core.shared.error.ConflictException.class)
                 .hasFieldOrPropertyWithValue("code", "DISPATCH_EXCEEDS_PENDING");
         assertThat(line.dispatched()).isEqualByComparingTo("45");
     }

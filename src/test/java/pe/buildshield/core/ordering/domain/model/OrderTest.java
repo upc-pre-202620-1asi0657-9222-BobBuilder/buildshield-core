@@ -145,4 +145,66 @@ class OrderTest {
         assertThat(restored.status()).isEqualTo(OrderStatus.IN_REVIEW);
         assertThat(restored.version()).isEqualTo(3L);
     }
+
+    private static final UUID CEMENT_LINE = UUID.randomUUID();
+    private static final UUID STEEL_LINE = UUID.randomUUID();
+
+    private static Order stored(OrderStatus status) {
+        return Order.restore(UUID.randomUUID(), WORKSITE, WAREHOUSE, JORGE, null, NOW, List.of(
+                OrderLine.restore(CEMENT_LINE, CEMENT, "CEM-001", "BAG", new BigDecimal("50"), BigDecimal.ZERO,
+                        BigDecimal.ZERO, BigDecimal.ZERO),
+                OrderLine.restore(STEEL_LINE, STEEL, "FIE-012", "UNIT", new BigDecimal("120"), BigDecimal.ZERO,
+                        BigDecimal.ZERO, BigDecimal.ZERO)), status, null, ROSA, NOW, 1L);
+    }
+
+    @Test
+    void dispatch_by_line_id_moves_to_partially_fulfilled_then_fulfilled() {
+        Order order = stored(OrderStatus.IN_REVIEW);
+        assertThat(order.acceptsDispatch()).isTrue();
+
+        order.registerDispatch(java.util.Map.of(CEMENT_LINE, new BigDecimal("20")));
+        assertThat(order.status()).isEqualTo(OrderStatus.PARTIALLY_FULFILLED);
+        assertThat(order.lineById(CEMENT_LINE).pending()).isEqualByComparingTo("30");
+        assertThat(order.hasPending()).isTrue();
+
+        order.registerDispatch(java.util.Map.of(CEMENT_LINE, new BigDecimal("30"), STEEL_LINE, new BigDecimal("120")));
+        assertThat(order.status()).isEqualTo(OrderStatus.FULFILLED);
+        assertThat(order.hasPending()).isFalse();
+        assertThat(order.acceptsDispatch()).isFalse();
+    }
+
+    @Test
+    void a_dispatch_exceeding_one_line_changes_nothing() {
+        Order order = stored(OrderStatus.IN_REVIEW);
+
+        assertThatThrownBy(() -> order.registerDispatch(java.util.Map.of(CEMENT_LINE, new BigDecimal("10"),
+                STEEL_LINE, new BigDecimal("121"))))
+                .isInstanceOf(pe.buildshield.core.shared.error.ConflictException.class)
+                .hasFieldOrPropertyWithValue("code", "DISPATCH_EXCEEDS_PENDING");
+        assertThat(order.lineById(CEMENT_LINE).dispatched()).isZero();
+        assertThat(order.status()).isEqualTo(OrderStatus.IN_REVIEW);
+    }
+
+    @Test
+    void dispatch_requires_lines_of_the_order_and_an_approved_order() {
+        assertThatThrownBy(() -> stored(OrderStatus.REGISTERED).registerDispatch(java.util.Map.of(CEMENT_LINE, BigDecimal.ONE)))
+                .isInstanceOf(InvalidOrderTransitionException.class);
+        assertThatThrownBy(() -> stored(OrderStatus.IN_REVIEW).registerDispatch(java.util.Map.of()))
+                .isInstanceOf(ValidationException.class).hasFieldOrPropertyWithValue("code", "DISPATCH_WITHOUT_LINES");
+        assertThatThrownBy(() -> stored(OrderStatus.IN_REVIEW).registerDispatch(java.util.Map.of(UUID.randomUUID(), BigDecimal.ONE)))
+                .isInstanceOf(ValidationException.class).hasFieldOrPropertyWithValue("code", "ORDER_LINE_NOT_FOUND");
+    }
+
+    @Test
+    void received_quantities_are_registered_by_line_up_to_what_was_dispatched() {
+        Order order = stored(OrderStatus.IN_REVIEW);
+        order.registerDispatch(java.util.Map.of(CEMENT_LINE, new BigDecimal("50")));
+
+        order.registerReceived(java.util.Map.of(CEMENT_LINE, new BigDecimal("49")));
+
+        assertThat(order.lineById(CEMENT_LINE).received()).isEqualByComparingTo("49");
+        assertThat(order.lineById(CEMENT_LINE).id()).isEqualTo(CEMENT_LINE);
+        assertThatThrownBy(() -> order.registerReceived(java.util.Map.of(CEMENT_LINE, new BigDecimal("2"))))
+                .isInstanceOf(ValidationException.class).hasFieldOrPropertyWithValue("code", "RECEIVED_EXCEEDS_DISPATCHED");
+    }
 }

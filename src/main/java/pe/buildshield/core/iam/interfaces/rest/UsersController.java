@@ -13,7 +13,10 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import io.swagger.v3.oas.annotations.Parameter;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -28,7 +31,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/users")
-@Tag(name = "Usuarios", description = "Gestión de usuarios y roles de la organización (solo administrador)")
+@Tag(name = "Usuarios", description = "US04 gestión de usuarios y roles de la organización (solo administrador)")
 @SecurityRequirement(name = "bearer")
 class UsersController {
 
@@ -68,6 +71,36 @@ class UsersController {
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     List<UserResource> list() {
         return userManagement.list().stream().map(UserResource::of).toList();
+    }
+
+    @PatchMapping("/{id}")
+    @PreAuthorize("hasRole('ADMINISTRATOR')")
+    @Operation(summary = "Desactivar, reactivar o cambiar el rol de un usuario",
+            description = "US04: active=false desactiva (no inicia sesión) y role cambia el rol. Si algo cambia se "
+                    + "revocan sus sesiones y sus tokens de acceso dejan de valer. El administrador no se desactiva ni "
+                    + "cambia su propio rol.")
+    @ApiResponse(responseCode = "200", description = "Usuario actualizado",
+            content = @Content(schema = @Schema(implementation = UserResource.class),
+                    examples = @ExampleObject(value = IamApiExamples.USER_DEACTIVATED)))
+    @ApiResponse(responseCode = "400", description = "Sin cambios indicados (EMPTY_UPDATE) o rol inválido",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "403", description = "Solo un administrador cambia usuarios",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "404", description = "El usuario no existe o es de otra organización",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "409", description = "El administrador intenta desactivarse o cambiar su propio rol "
+            + "(CANNOT_CHANGE_OWN_ACCOUNT)", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    UserResource update(@Parameter(description = "Id del usuario", example = "9c2d3e4f-5a6b-4c7d-8e9f-a0b1c2d3e4f5")
+            @PathVariable UUID id, @RequestBody UpdateUserRequest request) {
+        return UserResource.of(userManagement.update(id,
+                new UserManagementService.UpdateUserCommand(request.active(), request.role())));
+    }
+
+    @Schema(description = "Cambios del usuario: al menos uno")
+    record UpdateUserRequest(
+            @Schema(description = "false desactiva, true reactiva", example = "false") Boolean active,
+            @Schema(example = "SITE_MANAGER", allowableValues = {"ADMINISTRATOR", "WAREHOUSE_MANAGER", "SITE_MANAGER"})
+            String role) {
     }
 
     @Schema(description = "Datos del nuevo usuario")
